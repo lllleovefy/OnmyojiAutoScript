@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 import argparse
 from starlette import status
 from starlette.responses import JSONResponse
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Path
 from fastapi.middleware.cors import CORSMiddleware
 
 from module.logger import logger
@@ -18,6 +18,7 @@ from module.server.main_manager import mm
 from module.server.stats_router import stats_app
 from starlette import status
 from starlette.responses import JSONResponse
+from starlette.staticfiles import StaticFiles
 
 
 @asynccontextmanager
