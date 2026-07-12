@@ -213,7 +213,7 @@ class ScriptTask(GeneralBattle, GeneralInvite, GeneralBuff, GeneralRoom, GameUi,
                 else:
                     break
             # 队长秒开的时候，检测是否进入到战斗中
-            if self.is_in_battle(False):
+            if self.is_in_real_battle(False):
                 self.run_general_battle(
                     config=self.config.orochi.general_battle_config,
                     battle_key=self._orochi_battle_key()
