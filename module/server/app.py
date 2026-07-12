@@ -4,6 +4,7 @@
 from contextlib import asynccontextmanager
 
 import argparse
+import json
 from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,6 +23,19 @@ from module.server.setting import State
 from module.server.main_manager import mm
 
 
+class ASCIIJSONResponse(JSONResponse):
+    """Serialize non-ASCII characters as ``\\uXXXX`` for proxy compatibility."""
+
+    def render(self, content) -> bytes:
+        return json.dumps(
+            content,
+            ensure_ascii=True,
+            allow_nan=False,
+            indent=None,
+            separators=(",", ":"),
+        ).encode("utf-8")
+
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -34,6 +48,7 @@ app = FastAPI(
     description='OAS web service',
     version='0.0.0',
     lifespan=lifespan,
+    default_response_class=ASCIIJSONResponse,
 )
 
 app.add_middleware(
@@ -76,7 +91,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
     message = ', '.join(str(arg) for arg in exc.args) if exc.args else str(exc)
 
-    return JSONResponse(
+    return ASCIIJSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
             'message': message
