@@ -39,7 +39,7 @@ class MuMu12Handler(EmulatorHandler):
         return None
 
     def get_instance_id(self, instance) -> t.Optional[int]:
-        res = re.search(r'MuMuPlayer(?:Global)?-12.0-(\d+)', instance.name)
+        res = re.search(r'MuMuPlayer(?:Global)?-\d+(?:\.\d+)*-(\d+)$', instance.name)
         if res:
             return int(res.group(1))
         res = re.search(r'YXArkNights-12.0-(\d+)', instance.name)
