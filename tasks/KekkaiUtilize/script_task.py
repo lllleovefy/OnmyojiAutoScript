@@ -103,6 +103,9 @@ class ScriptTask(GameUi, ReplaceShikigami, KekkaiUtilizeAssets):
         退出的时候还是结界界面
         :return:
         """
+        # 自己的育成页和好友寄养页都有“式神录”按钮，仅导航到育成页会把
+        # 好友寄养页误判为已到达。先回到自己的结界主界面，再进入育成页。
+        self.goto_page(page_guild_realm)
         self.goto_page(page_guild_realm_growth)
         if auto_fill:
             self.ui_click(self.I_AUTO_FILL, self.I_REMOVE_ALL, interval=1.5)
@@ -595,4 +598,3 @@ if __name__ == "__main__":
     # t.screenshot()
     # print(t.appear(t.I_BOX_EXP, threshold=0.6))
     # print(t.appear(t.I_BOX_EXP_MAX, threshold=0.6))
-
