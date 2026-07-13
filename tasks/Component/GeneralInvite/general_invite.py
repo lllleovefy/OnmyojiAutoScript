@@ -124,6 +124,13 @@ class GeneralInvite(BaseTask, GeneralInviteAssets):
             fire = True
         # 如果是永生之海
         elif self.room_type == RoomType.ETERNITY_SEA and not self.appear(self.I_ADD_SEA):
+            # 避免因单帧漏识别队友空位而误开战
+            for _ in range(2):
+                sleep(0.5)
+                self.screenshot()
+                if self.appear(self.I_ADD_SEA):
+                    logger.info('Wait for eternity sea teammate')
+                    return False
             logger.info('Start challenge and this is lock sea')
             fire = True
         # 契灵之境(两人间但队友在一号位)
