@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 
 from module.logger import logger
 from module.server.api_logger import ensure_api_logger
+from module.server.duel_data_router import duel_data_app
 from module.server.home_router import home_app
 from module.server.log_router import log_app
 from module.server.script_router import script_app
@@ -64,6 +65,7 @@ app.include_router(script_app)
 app.include_router(stats_app)
 app.include_router(log_app)
 app.include_router(tool_app)
+app.include_router(duel_data_app)
 
 annotator_static_dir = Path(__file__).resolve().parent / "web" / "annotator" / "static"
 if annotator_static_dir.exists():

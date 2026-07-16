@@ -6,6 +6,114 @@
     "description": "战斗数据"
   },
   {
+    "itemName": "d_bp_confirm",
+    "roiFront": "1170,596,24,24",
+    "roiBack": "1170,596,24,24",
+    "description": "Safe centre of the current confirm button"
+  },
+  {
+    "itemName": "d_bp_auto_entry",
+    "roiFront": "43,133,24,24",
+    "roiBack": "43,133,24,24",
+    "description": "Auto-entry button centre"
+  },
+  {
+    "itemName": "d_bp_exit",
+    "roiFront": "24,20,24,24",
+    "roiBack": "24,20,24,24",
+    "description": "Selection and battle exit button centre"
+  },
+  {
+    "itemName": "d_bp_exit_cancel",
+    "roiFront": "524,414,24,24",
+    "roiBack": "524,414,24,24",
+    "description": "Exit dialog cancel"
+  },
+  {
+    "itemName": "d_bp_exit_confirm",
+    "roiFront": "730,414,24,24",
+    "roiBack": "730,414,24,24",
+    "description": "Exit dialog confirm"
+  },
+  {
+    "itemName": "d_bp_lobby_battle",
+    "roiFront": "1182,604,24,24",
+    "roiBack": "1182,604,24,24",
+    "description": "Duel lobby battle button centre"
+  },
+  {
+    "itemName": "d_bp_result_continue",
+    "roiFront": "628,678,24,24",
+    "roiBack": "628,678,24,24",
+    "description": "Result screen continue area"
+  },
+  {
+    "itemName": "d_bp_self_slot_1",
+    "roiFront": "120,36,24,24",
+    "roiBack": "120,36,24,24",
+    "description": "Self spatial slot 1, leftmost"
+  },
+  {
+    "itemName": "d_bp_self_slot_2",
+    "roiFront": "192,36,24,24",
+    "roiBack": "192,36,24,24",
+    "description": "Self spatial slot 2"
+  },
+  {
+    "itemName": "d_bp_self_slot_3",
+    "roiFront": "264,36,24,24",
+    "roiBack": "264,36,24,24",
+    "description": "Self spatial slot 3"
+  },
+  {
+    "itemName": "d_bp_self_slot_4",
+    "roiFront": "336,36,24,24",
+    "roiBack": "336,36,24,24",
+    "description": "Self spatial slot 4"
+  },
+  {
+    "itemName": "d_bp_self_slot_5",
+    "roiFront": "408,36,24,24",
+    "roiBack": "408,36,24,24",
+    "description": "Self spatial slot 5, rightmost"
+  },
+  {
+    "itemName": "d_bp_onmyoji_1",
+    "roiFront": "250,613,24,24",
+    "roiBack": "250,613,24,24",
+    "description": "Onmyoji roster card 1"
+  },
+  {
+    "itemName": "d_bp_onmyoji_2",
+    "roiFront": "404,613,24,24",
+    "roiBack": "404,613,24,24",
+    "description": "Onmyoji roster card 2"
+  },
+  {
+    "itemName": "d_bp_onmyoji_3",
+    "roiFront": "558,613,24,24",
+    "roiBack": "558,613,24,24",
+    "description": "Onmyoji roster card 3"
+  },
+  {
+    "itemName": "d_bp_onmyoji_4",
+    "roiFront": "712,613,24,24",
+    "roiBack": "712,613,24,24",
+    "description": "Onmyoji roster card 4"
+  },
+  {
+    "itemName": "d_bp_onmyoji_5",
+    "roiFront": "865,613,24,24",
+    "roiBack": "865,613,24,24",
+    "description": "Onmyoji roster card 5"
+  },
+  {
+    "itemName": "d_bp_onmyoji_6",
+    "roiFront": "1018,613,24,24",
+    "roiBack": "1018,613,24,24",
+    "description": "Onmyoji roster card 6"
+  },
+  {
     "itemName": "duel_click_5",
     "roiFront": "105,23,52,47",
     "roiBack": "105,23,52,47",

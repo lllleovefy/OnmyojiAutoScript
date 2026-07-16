@@ -10,9 +10,27 @@ from tasks.Component.config_base import ConfigBase, Time
 from tasks.Component.GeneralBattle.config_general_battle import GreenMarkType
 from enum import Enum
 from tasks.Component.SwitchSoul.switch_soul_config import SwitchSoulConfig
+from tasks.Duel.bp import DuelBPMode
+from tasks.Duel.identity import DEFAULT_IDENTITY_REGIONS_JSON
 
 
 class DuelConfig(ConfigBase):
+    # BP assistant is opt-in. Off preserves the legacy auto-entry behavior.
+    bp_mode: DuelBPMode = Field(default=DuelBPMode.OFF, description='duel_bp_mode_help')
+    bp_stable_frames: int = Field(default=3, ge=3, le=10, description='duel_bp_stable_frames_help')
+    bp_recommend_confidence: float = Field(default=0.90, ge=0, le=1, description='duel_bp_recommend_confidence_help')
+    bp_auto_confidence: float = Field(default=0.98, ge=0.98, le=1, description='duel_bp_auto_confidence_help')
+    bp_personal_min_samples: int = Field(default=20, ge=1, description='duel_bp_personal_min_samples_help')
+    bp_identity_enabled: bool = Field(default=True, description='duel_bp_identity_enabled_help')
+    bp_identity_confidence: float = Field(default=0.90, ge=0.5, le=1, description='duel_bp_identity_confidence_help')
+    bp_identity_regions: str = Field(
+        default=DEFAULT_IDENTITY_REGIONS_JSON,
+        description='duel_bp_identity_regions_help',
+    )
+    bp_pick_targets: str = Field(
+        default='{}',
+        description='duel_bp_pick_targets_help',
+    )
     # 是否切换阴阳师
     switch_enabled: bool = Field(default=True, description='是否切换阴阳师')
     # 切换阴阳师

@@ -399,7 +399,12 @@ class Script:
             module_path = str(Path.cwd() / 'tasks' / command / (module_name + '.py'))
             logger.info(f'module_path: {module_path}, module_name: {module_name}')
             task_module = load_module(module_name, module_path)
-            task_module.ScriptTask(config=self.config, device=self.device).run()
+            task_instance = task_module.ScriptTask(config=self.config, device=self.device)
+            # Task processes cannot publish directly to the API process's
+            # in-memory SSE broker. The shared state queue carries only the
+            # sanitized duel event envelope back to ScriptProcess.
+            task_instance.duel_event_queue = self.state_queue
+            task_instance.run()
         except Exception as e:
             return self._handle_task_exception(e, command)
         return False

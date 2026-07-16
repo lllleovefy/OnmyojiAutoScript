@@ -178,6 +178,7 @@ coverage.xml
 *.log
 local_settings.py
 db.sqlite3
+config/duel/*.sqlite3*
 
 # Flask stuff:
 instance/

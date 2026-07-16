@@ -1653,6 +1653,15 @@
       "float_time": "00:00:00"
     },
     "duel_config": {
+      "bp_mode": "off",
+      "bp_stable_frames": 3,
+      "bp_recommend_confidence": 0.9,
+      "bp_auto_confidence": 0.98,
+      "bp_personal_min_samples": 20,
+      "bp_identity_enabled": true,
+      "bp_identity_confidence": 0.9,
+      "bp_identity_regions": "{\"self\":[96,10,360,78],\"opponent\":[827,10,360,78],\"self_ban\":[45,355,85,90],\"opponent_ban\":[1150,355,90,90]}",
+      "bp_pick_targets": "{}",
       "switch_enabled": true,
       "switch_onmyoji": "源赖光",
       "switch_all_soul": false,
