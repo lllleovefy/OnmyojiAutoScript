@@ -38,6 +38,12 @@ class ScriptTask(GameUi, GeneralBattle, DemonEncounterAssets, SwitchSoul):
 
     def run(self):
         self.conf = self.config.demon_encounter
+        now = datetime.now()
+        if now.weekday() not in self.get_run_weekdays():
+            next_run = self.get_next_run_time(now)
+            logger.info(f'DemonEncounter is disabled today, wait to {next_run}')
+            self.set_next_run(task='DemonEncounter', server=False, target=next_run)
+            raise TaskEnd('DemonEncounter')
         if not self.check_time():
             logger.warning('Time is not right')
             raise TaskEnd('DemonEncounter')
@@ -51,7 +57,11 @@ class ScriptTask(GameUi, GeneralBattle, DemonEncounterAssets, SwitchSoul):
         self.execute_lantern()
         self.execute_boss()
         self.goto_page(page_main)
-        self.set_next_run(task='DemonEncounter', success=True, finish=False)
+        self.set_next_run(
+            task='DemonEncounter',
+            server=False,
+            target=self.get_next_run_time(datetime.now()),
+        )
         raise TaskEnd('DemonEncounter')
 
     def checkout_soul(self):
@@ -468,6 +478,45 @@ class ScriptTask(GameUi, GeneralBattle, DemonEncounterAssets, SwitchSoul):
             if self.click(target_click, interval=2.3):
                 continue
 
+    def get_run_weekdays(self) -> set[int]:
+        """读取允许执行的星期，返回值使用 datetime.weekday() 的编号。"""
+        weekdays = set()
+        invalid_values = []
+        raw_value = str(self.conf.run_weekdays).replace('，', ',')
+        for value in raw_value.split(','):
+            value = value.strip()
+            if not value:
+                continue
+            try:
+                weekday = int(value)
+            except ValueError:
+                invalid_values.append(value)
+                continue
+            if 1 <= weekday <= 7:
+                weekdays.add(weekday - 1)
+            else:
+                invalid_values.append(value)
+
+        if invalid_values:
+            logger.warning(f'Invalid DemonEncounter run weekdays: {invalid_values}')
+        if not weekdays:
+            logger.warning('No valid DemonEncounter run weekdays, fallback to 1,6,7')
+            return {0, 5, 6}
+        return weekdays
+
+    def get_next_run_time(self, now: datetime) -> datetime:
+        """计算下一个允许执行日的 17:30。"""
+        weekdays = self.get_run_weekdays()
+        for days_ahead in range(1, 8):
+            target_date = (now + timedelta(days=days_ahead)).date()
+            if target_date.weekday() in weekdays:
+                return datetime.combine(
+                    target_date,
+                    datetime.min.time().replace(hour=17, minute=30),
+                )
+        # 有效星期至少存在一天，正常不会执行到这里。
+        raise RuntimeError('Unable to find next DemonEncounter run time')
+
     def check_time(self):
         """
         检查时间是否正确，
@@ -480,13 +529,13 @@ class ScriptTask(GameUi, GeneralBattle, DemonEncounterAssets, SwitchSoul):
             # 17点之前，推迟到当天的17点半
             logger.info('Before 17:00, wait to 17:30')
             target_time = datetime(now.year, now.month, now.day, 17, 30, 0)
-            self.set_next_run(task='DemonEncounter', success=False, finish=False, target=target_time)
+            self.set_next_run(task='DemonEncounter', server=False, target=target_time)
             return False
         elif now.hour >= 23:
-            # 23点之后，推迟到第二天的17:30
-            logger.info('After 23:00, wait to 17:30')
-            target_time = datetime(now.year, now.month, now.day, 17, 30, 0) + timedelta(days=1)
-            self.set_next_run(task='DemonEncounter', success=False, finish=False, target=target_time)
+            # 23点之后，推迟到下一个允许执行日的17:30
+            target_time = self.get_next_run_time(now)
+            logger.info(f'After 23:00, wait to {target_time}')
+            self.set_next_run(task='DemonEncounter', server=False, target=target_time)
             return False
         else:
             return True
