@@ -131,13 +131,17 @@ class UtilizeScheduler(Scheduler):
     priority: int = Field(default=2, description='priority_help')
 
 
-class DemonEncounter(ConfigBase):
+class DemonRunConfig(BaseModel):
     run_weekdays: str = Field(
         default="1,6,7",
         title="执行星期",
         description="逢魔执行星期，使用英文逗号分隔；1 表示周一，7 表示周日，例如：1,6,7",
     )
+
+
+class DemonEncounter(ConfigBase):
     scheduler: UtilizeScheduler = Field(default_factory=UtilizeScheduler)
+    demon_run_config: DemonRunConfig = Field(default_factory=DemonRunConfig)
     box_buy_config: BoxBuyConfig = Field(default_factory=BoxBuyConfig)
     best_demon_boss_config: BestDemonBossSelect = Field(default_factory=BestDemonBossSelect)
     demon_soul_config: DemonConfig = Field(default_factory=DemonConfig)

@@ -482,7 +482,7 @@ class ScriptTask(GameUi, GeneralBattle, DemonEncounterAssets, SwitchSoul):
         """读取允许执行的星期，返回值使用 datetime.weekday() 的编号。"""
         weekdays = set()
         invalid_values = []
-        raw_value = str(self.conf.run_weekdays).replace('，', ',')
+        raw_value = str(self.conf.demon_run_config.run_weekdays).replace('，', ',')
         for value in raw_value.split(','):
             value = value.strip()
             if not value:

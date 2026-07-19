@@ -124,6 +124,8 @@
   "enable_switch_layer_soul_help": "使用八岐大蛇任务御魂的配置",
   "demon_battle_config": "逢魔战斗配置",
   "best_demon_battle_config": "极逢魔战斗配置",
+  "demon_run_config": "逢魔执行日期配置",
+  "run_weekdays": "执行星期",
   "demon_kiryou_utahime_enable": "启用切换鬼灵歌姬预设",
   "demon_shinkirou_enable": "启用切换蜃气楼预设",
   "demon_tsuchigumo_enable": "启用切换土蜘蛛预设",
