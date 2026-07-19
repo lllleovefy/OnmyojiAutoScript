@@ -311,9 +311,13 @@ class BaseExploration(GameUi, GeneralBattle, GeneralRoom, GeneralInvite, Replace
                 return True
             if cur_page in (pages.page_battle_prepare, pages.page_battle):
                 return True
-            if self.appear_then_click(button, interval=0.8):
-                max_tries -= 1
-                continue
+            clicked = self.appear_then_click(button, interval=0.8)
+            max_tries -= 1
+            if clicked:
+                time.sleep(0.8)
+            else:
+                # 动态目标可能暂时消失，等待下一帧后继续识别。
+                time.sleep(0.2)
         return False
 
     def switch_rotate(self) -> bool:
