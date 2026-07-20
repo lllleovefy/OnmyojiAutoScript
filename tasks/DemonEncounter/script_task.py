@@ -1,6 +1,7 @@
 # This Python file uses the following encoding: utf-8
 # @author runhey
 # github https://github.com/runhey
+import random
 import time
 from time import sleep
 
@@ -505,15 +506,19 @@ class ScriptTask(GameUi, GeneralBattle, DemonEncounterAssets, SwitchSoul):
         return weekdays
 
     def get_next_run_time(self, now: datetime) -> datetime:
-        """计算下一个允许执行日的 17:30。"""
+        """按执行星期、服务执行时间和随机延迟计算下次运行时间。"""
         weekdays = self.get_run_weekdays()
+        scheduler = self.conf.scheduler
+        float_seconds = (
+            scheduler.float_time.hour * 3600
+            + scheduler.float_time.minute * 60
+            + scheduler.float_time.second
+        )
         for days_ahead in range(1, 8):
             target_date = (now + timedelta(days=days_ahead)).date()
             if target_date.weekday() in weekdays:
-                return datetime.combine(
-                    target_date,
-                    datetime.min.time().replace(hour=17, minute=30),
-                )
+                target = datetime.combine(target_date, scheduler.server_update)
+                return target + timedelta(seconds=random.randint(0, float_seconds))
         # 有效星期至少存在一天，正常不会执行到这里。
         raise RuntimeError('Unable to find next DemonEncounter run time')
 
@@ -521,18 +526,25 @@ class ScriptTask(GameUi, GeneralBattle, DemonEncounterAssets, SwitchSoul):
         """
         检查时间是否正确，
         如果正确就继续
-        如果不在17:00到22:00之间,就推迟到下一个 17:30
+        如果早于服务执行时间或已到23点，就推迟到合适的执行时间
         :return:
         """
         now = datetime.now()
-        if now.hour < 17:
-            # 17点之前，推迟到当天的17点半
-            logger.info('Before 17:00, wait to 17:30')
-            target_time = datetime(now.year, now.month, now.day, 17, 30, 0)
+        scheduler = self.conf.scheduler
+        configured_time = datetime.combine(now.date(), scheduler.server_update)
+        if now < configured_time:
+            # 当天尚未到服务执行时间，按配置时间加随机延迟执行
+            float_seconds = (
+                scheduler.float_time.hour * 3600
+                + scheduler.float_time.minute * 60
+                + scheduler.float_time.second
+            )
+            target_time = configured_time + timedelta(seconds=random.randint(0, float_seconds))
+            logger.info(f'Before server update time, wait to {target_time}')
             self.set_next_run(task='DemonEncounter', server=False, target=target_time)
             return False
         elif now.hour >= 23:
-            # 23点之后，推迟到下一个允许执行日的17:30
+            # 23点之后，推迟到下一个允许执行日的配置时间
             target_time = self.get_next_run_time(now)
             logger.info(f'After 23:00, wait to {target_time}')
             self.set_next_run(task='DemonEncounter', server=False, target=target_time)
