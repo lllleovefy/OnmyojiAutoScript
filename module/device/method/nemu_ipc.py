@@ -212,10 +212,10 @@ class NemuIpcImpl:
         list_dll = [
             # MuMuPlayer12
             os.path.abspath(os.path.join(nemu_folder, './shell/sdk/external_renderer_ipc.dll')),
-            # MuMuPlayer12 5.0
-            os.path.abspath(os.path.join(nemu_folder, './nx_device/12.0/shell/sdk/external_renderer_ipc.dll')),
             # MuMuPlayer15
             os.path.abspath(os.path.join(nemu_folder, './nx_device/15.0/shell/sdk/external_renderer_ipc.dll')),
+            # MuMuPlayer12 5.0
+            os.path.abspath(os.path.join(nemu_folder, './nx_device/12.0/shell/sdk/external_renderer_ipc.dll')),
         ]
         self.lib = None
         for ipc_dll in list_dll:
