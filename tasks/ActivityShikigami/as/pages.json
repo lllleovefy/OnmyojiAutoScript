@@ -3,9 +3,9 @@
     "itemName": "main_goto_act",
     "imageName": "as_main_goto_act.png",
     "roiFront": "369,266,61,57",
-    "roiBack": "330,220,150,150",
+    "roiBack": "200,100,1050,450",
     "method": "Template matching",
-    "threshold": 0.7,
+    "threshold": 0.55,
     "description": "庭院进入活动"
   },
   {
