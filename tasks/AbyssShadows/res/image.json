@@ -218,8 +218,8 @@
   {
     "itemName": "difficulty_easy",
     "imageName": "res_difficulty_easy.png",
-    "roiFront": "620,445,90,210",
-    "roiBack": "620,445,90,210",
+    "roiFront": "620,380,90,275",
+    "roiBack": "620,380,90,275",
     "method": "Template matching",
     "threshold": 0.8,
     "description": "容易难度"

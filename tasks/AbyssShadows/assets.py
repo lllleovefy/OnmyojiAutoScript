@@ -99,7 +99,7 @@ class AbyssShadowsAssets:
 	# 选择难度按钮 
 	I_SELECT_DIFFICULTY = RuleImage(roi_front=(703,645,50,55), roi_back=(703,645,50,55), threshold=0.8, method="Template matching", file="./tasks/AbyssShadows/res/res_select_difficulty.png")
 	# 容易难度 
-	I_DIFFICULTY_EASY = RuleImage(roi_front=(620,445,90,210), roi_back=(620,445,90,210), threshold=0.8, method="Template matching", file="./tasks/AbyssShadows/res/res_difficulty_easy.png")
+	I_DIFFICULTY_EASY = RuleImage(roi_front=(620,380,90,275), roi_back=(620,380,90,275), threshold=0.8, method="Template matching", file="./tasks/AbyssShadows/res/res_difficulty_easy.png")
 	# 普通难度 
 	I_DIFFICULTY_NORMAL = RuleImage(roi_front=(620,445,90,210), roi_back=(620,445,90,210), threshold=0.8, method="Template matching", file="./tasks/AbyssShadows/res/res_difficulty_normal.png")
 	# 困难难度 
@@ -146,5 +146,4 @@ class AbyssShadowsAssets:
 	# Swipe Rule Assets
 	# 滑到狭间 
 	S_TO_ABBSY_SHADOWS = RuleSwipe(roi_front=(752,395,62,66), roi_back=(758,193,62,48), mode="default", name="to_abbsy_shadows")
-
 
