@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 import asyncio
-import ipaddress
 import re
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
-from urllib.parse import urlsplit
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse, StreamingResponse
 
 from module.duel_data.live import duel_live_broker, publish_live_event
@@ -27,46 +25,10 @@ from module.duel_data.repository import DuelRepository, PROJECT_ROOT
 from module.server.api_logger import ApiLoggingRoute
 
 
-def _is_loopback_host(host: str | None) -> bool:
-    if not host:
-        return False
-    normalized = host.strip("[]").lower()
-    if normalized == "localhost":
-        return True
-    try:
-        address = ipaddress.ip_address(normalized)
-    except ValueError:
-        return False
-    if address.is_loopback:
-        return True
-    return bool(
-        isinstance(address, ipaddress.IPv6Address)
-        and address.ipv4_mapped is not None
-        and address.ipv4_mapped.is_loopback
-    )
-
-
-def _require_local_duel_access(request: Request) -> None:
-    """Keep private duel history on the local machine.
-
-    OAS currently has no global API authentication.  The client-address check
-    blocks LAN callers, while the Origin check also blocks an arbitrary web
-    page from using permissive global CORS to call a loopback OAS instance.
-    Native OASX requests do not send an Origin header.
-    """
-    client_host = request.client.host if request.client is not None else None
-    if not _is_loopback_host(client_host):
-        raise HTTPException(status_code=403, detail="斗技数据接口仅允许本机访问")
-    origin = request.headers.get("origin")
-    if origin and not _is_loopback_host(urlsplit(origin).hostname):
-        raise HTTPException(status_code=403, detail="斗技数据接口拒绝非本机网页来源")
-
-
 duel_data_app = APIRouter(
     prefix="/duel-data",
     tags=["duel-data"],
     route_class=ApiLoggingRoute,
-    dependencies=[Depends(_require_local_duel_access)],
 )
 
 
