@@ -71,6 +71,20 @@ class DuelBPConfigTest(unittest.TestCase):
             _coerce_script_argument_value("json", "[596,399]"),
         )
 
+    def test_generic_task_arguments_support_default_factory_fields(self) -> None:
+        """The shared task-config page must serialize the strict pool."""
+
+        from module.config.config_model import ConfigModel
+
+        arguments = ConfigModel().script_task("Duel")
+        pool = next(
+            item
+            for item in arguments["duel_config"]
+            if item["name"] == "bp_shishen_pool"
+        )
+        self.assertEqual([], pool["default"])
+        self.assertEqual([], pool["value"])
+
 
 class DuelBPStateMachineTest(unittest.TestCase):
     def test_requires_three_identical_frames_for_every_transition(self) -> None:
