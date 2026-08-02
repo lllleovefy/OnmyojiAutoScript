@@ -8,10 +8,12 @@ from unittest.mock import patch
 
 import numpy as np
 from fastapi import HTTPException
+from starlette.requests import Request
 
 from module.duel_data.models import DuelPortraitLabel, DuelRecommendation
 from module.duel_data.repository import DuelRepository
 from module.server.duel_data_router import (
+    _require_local_duel_access,
     duel_data_app,
     duel_portrait_image,
     duel_portrait_label,
@@ -95,11 +97,46 @@ class DuelDataRouterContractTest(unittest.TestCase):
             routes,
         )
 
-    def test_duel_routes_do_not_install_a_local_only_dependency(self):
-        self.assertEqual([], duel_data_app.dependencies)
-        for route in duel_data_app.routes:
-            with self.subTest(route=route.path):
-                self.assertEqual([], route.dependencies)
+    @staticmethod
+    def _request(client_host: str, origin: str | None = None) -> Request:
+        headers = []
+        if origin is not None:
+            headers.append((b"origin", origin.encode("ascii")))
+        return Request(
+            {
+                "type": "http",
+                "method": "GET",
+                "path": "/duel-data/summary",
+                "headers": headers,
+                "client": (client_host, 12345),
+                "server": ("0.0.0.0", 22288),
+                "scheme": "http",
+                "query_string": b"",
+            }
+        )
+
+    def test_duel_routes_allow_local_and_private_network_clients(self):
+        for request in (
+            self._request("127.0.0.1"),
+            self._request("::1", "http://localhost:4321"),
+            self._request("192.168.1.50"),
+            self._request("10.20.30.40", "http://192.168.1.60:4321"),
+            self._request("172.16.5.9", "http://10.0.0.8:4321"),
+            self._request("fd12:3456::50", "http://[fd12:3456::60]:4321"),
+        ):
+            with self.subTest(client=request.client, origin=request.headers.get("origin")):
+                _require_local_duel_access(request)
+
+    def test_duel_routes_still_reject_public_clients_and_origins(self):
+        for request in (
+            self._request("8.8.8.8"),
+            self._request("127.0.0.1", "https://malicious.example"),
+            self._request("192.168.1.50", "https://8.8.8.8"),
+        ):
+            with self.subTest(client=request.client, origin=request.headers.get("origin")):
+                with self.assertRaises(HTTPException) as caught:
+                    _require_local_duel_access(request)
+                self.assertEqual(403, caught.exception.status_code)
 
     def test_portrait_status_unresolved_and_label_api_contract(self):
         with tempfile.TemporaryDirectory() as temp_dir:
