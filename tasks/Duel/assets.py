@@ -13,6 +13,42 @@ class DuelAssets:
 	# Click Rule Assets
 	# 战斗数据 
 	C_D_BATTLE_DATA = RuleClick(roi_front=(584,279,100,100), roi_back=(584,279,100,100), name="d_battle_data")
+	# Safe centre of the current confirm button
+	C_D_BP_CONFIRM = RuleClick(roi_front=(1170,596,24,24), roi_back=(1170,596,24,24), name="d_bp_confirm")
+	# Auto-entry button centre
+	C_D_BP_AUTO_ENTRY = RuleClick(roi_front=(43,133,24,24), roi_back=(43,133,24,24), name="d_bp_auto_entry")
+	# Selection and battle exit button centre
+	C_D_BP_EXIT = RuleClick(roi_front=(24,20,24,24), roi_back=(24,20,24,24), name="d_bp_exit")
+	# Exit dialog cancel
+	C_D_BP_EXIT_CANCEL = RuleClick(roi_front=(524,414,24,24), roi_back=(524,414,24,24), name="d_bp_exit_cancel")
+	# Exit dialog confirm
+	C_D_BP_EXIT_CONFIRM = RuleClick(roi_front=(730,414,24,24), roi_back=(730,414,24,24), name="d_bp_exit_confirm")
+	# Duel lobby battle button centre
+	C_D_BP_LOBBY_BATTLE = RuleClick(roi_front=(1182,604,24,24), roi_back=(1182,604,24,24), name="d_bp_lobby_battle")
+	# Result screen continue area
+	C_D_BP_RESULT_CONTINUE = RuleClick(roi_front=(628,678,24,24), roi_back=(628,678,24,24), name="d_bp_result_continue")
+	# Self spatial slot 1, leftmost
+	C_D_BP_SELF_SLOT_1 = RuleClick(roi_front=(120,36,24,24), roi_back=(120,36,24,24), name="d_bp_self_slot_1")
+	# Self spatial slot 2
+	C_D_BP_SELF_SLOT_2 = RuleClick(roi_front=(192,36,24,24), roi_back=(192,36,24,24), name="d_bp_self_slot_2")
+	# Self spatial slot 3
+	C_D_BP_SELF_SLOT_3 = RuleClick(roi_front=(264,36,24,24), roi_back=(264,36,24,24), name="d_bp_self_slot_3")
+	# Self spatial slot 4
+	C_D_BP_SELF_SLOT_4 = RuleClick(roi_front=(336,36,24,24), roi_back=(336,36,24,24), name="d_bp_self_slot_4")
+	# Self spatial slot 5, rightmost
+	C_D_BP_SELF_SLOT_5 = RuleClick(roi_front=(408,36,24,24), roi_back=(408,36,24,24), name="d_bp_self_slot_5")
+	# Onmyoji roster card 1
+	C_D_BP_ONMYOJI_1 = RuleClick(roi_front=(250,613,24,24), roi_back=(250,613,24,24), name="d_bp_onmyoji_1")
+	# Onmyoji roster card 2
+	C_D_BP_ONMYOJI_2 = RuleClick(roi_front=(404,613,24,24), roi_back=(404,613,24,24), name="d_bp_onmyoji_2")
+	# Onmyoji roster card 3
+	C_D_BP_ONMYOJI_3 = RuleClick(roi_front=(558,613,24,24), roi_back=(558,613,24,24), name="d_bp_onmyoji_3")
+	# Onmyoji roster card 4
+	C_D_BP_ONMYOJI_4 = RuleClick(roi_front=(712,613,24,24), roi_back=(712,613,24,24), name="d_bp_onmyoji_4")
+	# Onmyoji roster card 5
+	C_D_BP_ONMYOJI_5 = RuleClick(roi_front=(865,613,24,24), roi_back=(865,613,24,24), name="d_bp_onmyoji_5")
+	# Onmyoji roster card 6
+	C_D_BP_ONMYOJI_6 = RuleClick(roi_front=(1018,613,24,24), roi_back=(1018,613,24,24), name="d_bp_onmyoji_6")
 	# 点击第五手上式神位置，获得式神名称 
 	C_DUEL_CLICK_5 = RuleClick(roi_front=(105,23,52,47), roi_back=(105,23,52,47), name="duel_click_5")
 
@@ -58,6 +94,18 @@ class DuelAssets:
 	I_D_CHECK_BAN = RuleImage(roi_front=(611,36,56,62), roi_back=(590,14,100,100), threshold=0.8, method="Template matching", file="./tasks/Duel/duel/duel_d_check_ban.png")
 	# 斗技荣誉图标 
 	I_DUEL_HONOR = RuleImage(roi_front=(211,636,20,20), roi_back=(200,601,130,100), threshold=0.8, method="Template matching", file="./tasks/Duel/duel/duel_duel_honor.png")
+	# Current Duel UI active confirm button
+	I_D_BP_CONFIRM_ACTIVE = RuleImage(roi_front=(1121,580,117,44), roi_back=(1118,577,123,50), threshold=0.9, method="Template matching", file="./tasks/Duel/duel/duel_d_bp_confirm_active.png")
+	# Current Duel UI locked confirm button
+	I_D_BP_CONFIRMED = RuleImage(roi_front=(1121,580,117,44), roi_back=(1118,577,123,50), threshold=0.9, method="Template matching", file="./tasks/Duel/duel/duel_d_bp_confirmed.png")
+	# Opponent is selecting
+	I_D_BP_OPPONENT_SELECTING = RuleImage(roi_front=(808,308,188,36), roi_back=(805,305,194,42), threshold=0.85, method="Template matching", file="./tasks/Duel/duel/duel_d_bp_opponent_selecting.png")
+	# Opponent has confirmed
+	I_D_BP_OPPONENT_CONFIRMED = RuleImage(roi_front=(808,308,188,36), roi_back=(805,305,194,42), threshold=0.85, method="Template matching", file="./tasks/Duel/duel/duel_d_bp_opponent_confirmed.png")
+	# Round-six Onmyoji selection roster
+	I_D_BP_ONMYOJI_SELECT = RuleImage(roi_front=(205,566,40,58), roi_back=(196,552,62,86), threshold=0.85, method="Template matching", file="./tasks/Duel/duel/duel_d_bp_onmyoji_select.png")
+	# Final lineup reveal after Onmyoji selection
+	I_D_BP_READY = RuleImage(roi_front=(505,275,270,220), roi_back=(495,265,290,240), threshold=0.85, method="Template matching", file="./tasks/Duel/duel/duel_d_bp_ready.png")
 	# 胜利分享 
 	I_D_WIN_SHARE = RuleImage(roi_front=(1123,608,82,73), roi_back=(1123,608,82,73), threshold=0.8, method="Template matching", file="./tasks/Duel/duel/d_win_share.png")
 
@@ -71,5 +119,4 @@ class DuelAssets:
 	O_D_CELEB_STAR = RuleOcr(roi=(625,454,77,37), area=(625,454,77,37), mode="Digit", method="Default", keyword="", name="d_celeb_star")
 	# 被办式神名称 
 	O_D_BAN_NAME = RuleOcr(roi=(92,97,82,25), area=(92,97,82,25), mode="Single", method="Default", keyword="", name="d_ban_name")
-
 

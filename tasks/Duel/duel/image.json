@@ -180,6 +180,60 @@
     "description": "斗技荣誉图标"
   },
   {
+    "itemName": "d_bp_confirm_active",
+    "imageName": "duel_d_bp_confirm_active.png",
+    "roiFront": "1121,580,117,44",
+    "roiBack": "1118,577,123,50",
+    "method": "Template matching",
+    "threshold": 0.9,
+    "description": "Current Duel UI active confirm button"
+  },
+  {
+    "itemName": "d_bp_confirmed",
+    "imageName": "duel_d_bp_confirmed.png",
+    "roiFront": "1121,580,117,44",
+    "roiBack": "1118,577,123,50",
+    "method": "Template matching",
+    "threshold": 0.9,
+    "description": "Current Duel UI locked confirm button"
+  },
+  {
+    "itemName": "d_bp_opponent_selecting",
+    "imageName": "duel_d_bp_opponent_selecting.png",
+    "roiFront": "808,308,188,36",
+    "roiBack": "805,305,194,42",
+    "method": "Template matching",
+    "threshold": 0.85,
+    "description": "Opponent is selecting"
+  },
+  {
+    "itemName": "d_bp_opponent_confirmed",
+    "imageName": "duel_d_bp_opponent_confirmed.png",
+    "roiFront": "808,308,188,36",
+    "roiBack": "805,305,194,42",
+    "method": "Template matching",
+    "threshold": 0.85,
+    "description": "Opponent has confirmed"
+  },
+  {
+    "itemName": "d_bp_onmyoji_select",
+    "imageName": "duel_d_bp_onmyoji_select.png",
+    "roiFront": "205,566,40,58",
+    "roiBack": "196,552,62,86",
+    "method": "Template matching",
+    "threshold": 0.85,
+    "description": "Round-six Onmyoji selection roster"
+  },
+  {
+    "itemName": "d_bp_ready",
+    "imageName": "duel_d_bp_ready.png",
+    "roiFront": "505,275,270,220",
+    "roiBack": "495,265,290,240",
+    "method": "Template matching",
+    "threshold": 0.85,
+    "description": "Final lineup reveal after Onmyoji selection"
+  },
+  {
     "itemName": "d_win_share",
     "imageName": "d_win_share.png",
     "roiFront": "1123,608,82,73",
