@@ -8,12 +8,10 @@ from unittest.mock import patch
 
 import numpy as np
 from fastapi import HTTPException
-from starlette.requests import Request
 
 from module.duel_data.models import DuelPortraitLabel, DuelRecommendation
 from module.duel_data.repository import DuelRepository
 from module.server.duel_data_router import (
-    _require_local_duel_access,
     duel_data_app,
     duel_portrait_image,
     duel_portrait_label,
@@ -97,37 +95,11 @@ class DuelDataRouterContractTest(unittest.TestCase):
             routes,
         )
 
-    @staticmethod
-    def _request(client_host: str, origin: str | None = None) -> Request:
-        headers = []
-        if origin is not None:
-            headers.append((b"origin", origin.encode("ascii")))
-        return Request(
-            {
-                "type": "http",
-                "method": "GET",
-                "path": "/duel-data/summary",
-                "headers": headers,
-                "client": (client_host, 12345),
-                "server": ("127.0.0.1", 22270),
-                "scheme": "http",
-                "query_string": b"",
-            }
-        )
-
-    def test_private_duel_routes_allow_only_local_clients_and_origins(self):
-        _require_local_duel_access(self._request("127.0.0.1"))
-        _require_local_duel_access(
-            self._request("::1", "http://localhost:4321")
-        )
-        for request in (
-            self._request("192.168.1.50"),
-            self._request("127.0.0.1", "https://malicious.example"),
-        ):
-            with self.subTest(client=request.client, origin=request.headers.get("origin")):
-                with self.assertRaises(HTTPException) as caught:
-                    _require_local_duel_access(request)
-                self.assertEqual(403, caught.exception.status_code)
+    def test_duel_routes_do_not_install_a_local_only_dependency(self):
+        self.assertEqual([], duel_data_app.dependencies)
+        for route in duel_data_app.routes:
+            with self.subTest(route=route.path):
+                self.assertEqual([], route.dependencies)
 
     def test_portrait_status_unresolved_and_label_api_contract(self):
         with tempfile.TemporaryDirectory() as temp_dir:
