@@ -289,7 +289,7 @@ def set_file_logger(name=pyw_name, *, do_cleanup=False):
         show_time=False,
         show_level=False,
         rich_tracebacks=True,
-        tracebacks_show_locals=True,
+        tracebacks_show_locals=False,
         tracebacks_extra_lines=3,
         tracebacks_width=160,
         highlighter=NullHighlighter(),

@@ -6,7 +6,7 @@ import time
 from datetime import date
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, urlparse
 
 from fastapi import Request
 from fastapi.encoders import jsonable_encoder
@@ -199,11 +199,25 @@ def _serialize_payload(payload: dict[str, Any]) -> str:
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":"), default=str)
 
 
+def _is_high_frequency_success(payload: dict[str, Any]) -> bool:
+    """Return whether a successful response should stay out of the API file."""
+
+    response = payload.get("response", {})
+    if int(response.get("status_code", 200)) >= 400:
+        return False
+    path = urlparse(str(payload.get("request", {}).get("url", ""))).path
+    return path == "/logs" or path.startswith("/logs/") or (
+        response.get("response_type") == "StreamingResponse"
+    )
+
+
 def log_http_access(payload: dict[str, Any]) -> None:
     logger = ensure_api_logger()
     status_code = int(payload.get("response", {}).get("status_code", 200))
     message = f"HTTP {_serialize_payload(payload)}"
-    if status_code >= 500:
+    if _is_high_frequency_success(payload):
+        logger.debug(message)
+    elif status_code >= 500:
         logger.error(message)
     elif status_code >= 400:
         logger.warning(message)
