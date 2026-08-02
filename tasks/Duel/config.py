@@ -1,7 +1,7 @@
 # This Python file uses the following encoding: utf-8
 # @author runhey
 # github https://github.com/runhey
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from datetime import time
 from tasks.Component.SwitchOnmyoji.config import Onmyoji
 
@@ -31,6 +31,62 @@ class DuelConfig(ConfigBase):
         default='{}',
         description='duel_bp_pick_targets_help',
     )
+    bp_shishen_pool: list[int] = Field(
+        default_factory=list,
+        description='duel_bp_shishen_pool_help',
+    )
+    bp_portrait_library: str = Field(
+        default='config/duel/portrait_library',
+        description='duel_bp_portrait_library_help',
+    )
+    bp_candidate_swipe_limit: int = Field(
+        default=12,
+        ge=1,
+        le=40,
+        description='duel_bp_candidate_swipe_limit_help',
+    )
+    bp_candidate_scan_budget: float = Field(
+        default=5.0,
+        ge=1.0,
+        le=8.0,
+        description='duel_bp_candidate_scan_budget_help',
+    )
+    bp_opponent_inspect_enabled: bool = Field(
+        default=False,
+        description='duel_bp_opponent_inspect_enabled_help',
+    )
+    bp_log_raw_frames: bool = Field(
+        default=False,
+        description='duel_bp_log_raw_frames_help',
+    )
+    bp_sample_capture_enabled: bool = Field(
+        default=False,
+        description='duel_bp_sample_capture_enabled_help',
+    )
+    bp_sample_capture_interval: float = Field(
+        default=1.0,
+        ge=0.25,
+        le=10.0,
+        description='duel_bp_sample_capture_interval_help',
+    )
+    bp_auto_verified: bool = Field(
+        default=False,
+        description='duel_bp_auto_verified_help',
+    )
+
+    @field_validator('bp_shishen_pool')
+    @classmethod
+    def normalize_bp_shishen_pool(cls, values: list[int]) -> list[int]:
+        normalized: list[int] = []
+        seen: set[int] = set()
+        for value in values:
+            shishen_id = int(value)
+            if shishen_id <= 0:
+                raise ValueError('shishen IDs must be positive integers')
+            if shishen_id not in seen:
+                seen.add(shishen_id)
+                normalized.append(shishen_id)
+        return normalized
     # 是否切换阴阳师
     switch_enabled: bool = Field(default=True, description='是否切换阴阳师')
     # 切换阴阳师

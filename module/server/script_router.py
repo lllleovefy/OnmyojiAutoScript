@@ -31,6 +31,14 @@ from tasks.Component.config_base import TimeDelta
 script_app = APIRouter(route_class=ApiLoggingRoute)
 
 
+def _coerce_script_argument_value(types: str, value):
+    """Convert an API argument value to the declared config field type."""
+
+    if types == 'json':
+        return json.loads(value) if isinstance(value, str) else value
+    return value
+
+
 @script_app.get('/test')
 async def script_test():
     return 'success'
@@ -282,6 +290,8 @@ async def script_task(script_name: str, task: str, group: str, argument: str, ty
                 value = bool(value)
             case 'string':
                 pass
+            case 'json':
+                value = _coerce_script_argument_value(types, value)
             case 'date_time':
                 value = datetime.strptime(value, '%Y-%m-%d %H:%M:%S')
             case 'time_delta':

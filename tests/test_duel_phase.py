@@ -34,11 +34,68 @@ class DuelBPPhaseClassifierTest(unittest.TestCase):
                 )
                 self.assertEqual(DuelBPState.SELF_PICK, result.state)
 
+    def test_opponent_text_without_own_control_has_no_phase_authority(
+        self,
+    ) -> None:
+        for opponent_signal in (
+            {"opponent_selecting": 0.99},
+            {"opponent_locked": 0.99},
+        ):
+            with self.subTest(opponent_signal=opponent_signal):
+                result = self.classify(
+                    DuelBPPhaseSignals(**opponent_signal),
+                    previous=DuelBPState.SELF_PICK,
+                )
+                self.assertIsNone(result.state)
+                self.assertEqual(0.0, result.confidence)
+
+    def test_opponent_text_prevents_ready_after_onmyoji_selection(
+        self,
+    ) -> None:
+        for opponent_signal in (
+            {"opponent_selecting": 0.99},
+            {"opponent_locked": 0.99},
+        ):
+            with self.subTest(opponent_signal=opponent_signal):
+                result = self.classify(
+                    DuelBPPhaseSignals(**opponent_signal),
+                    previous=DuelBPState.OPPONENT_PICK,
+                    seen_onmyoji=True,
+                )
+                self.assertIsNone(result.state)
+                self.assertNotEqual(DuelBPState.READY, result.state)
+
+    def test_overlays_do_not_inflate_confirm_control_confidence(self) -> None:
+        active = self.classify(
+            DuelBPPhaseSignals(
+                confirm_active=0.91,
+                opponent_selecting=0.99,
+            )
+        )
+        locked = self.classify(
+            DuelBPPhaseSignals(
+                confirm_locked=0.92,
+                opponent_locked=0.995,
+            )
+        )
+        self.assertEqual(0.91, active.confidence)
+        self.assertEqual(0.92, locked.confidence)
+
     def test_locked_confirm_is_non_action_even_during_reveal(self) -> None:
         result = self.classify(
             DuelBPPhaseSignals(confirm_locked=0.99)
         )
         self.assertEqual(DuelBPState.OPPONENT_PICK, result.state)
+
+    def test_legacy_prepare_button_never_authorizes_self_pick(self) -> None:
+        result = self.classify(
+            DuelBPPhaseSignals(legacy_action=0.999)
+        )
+        self.assertEqual(DuelBPState.OPPONENT_PICK, result.state)
+        self.assertEqual(
+            "selection_without_active_confirm",
+            result.reason,
+        )
 
     def test_onmyoji_is_round_six_selection_not_ready(self) -> None:
         active = self.classify(

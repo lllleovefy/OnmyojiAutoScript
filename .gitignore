@@ -179,6 +179,7 @@ coverage.xml
 local_settings.py
 db.sqlite3
 config/duel/*.sqlite3*
+config/duel/portrait_library/
 
 # Flask stuff:
 instance/

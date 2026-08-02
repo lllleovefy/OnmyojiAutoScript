@@ -32,6 +32,8 @@ class DuelBPPhaseSignals:
         return max(
             self.confirm_active,
             self.confirm_locked,
+            self.opponent_selecting,
+            self.opponent_locked,
             self.onmyoji_selection,
             self.weak_selection,
             self.legacy_action,
@@ -85,12 +87,9 @@ def classify_bp_phase(
     if signals.confirm_active > 0:
         return DuelBPPhaseClassification(
             DuelBPState.SELF_PICK,
-            max(
-                signals.confirm_active,
-                signals.opponent_selecting,
-                signals.opponent_locked,
-                signals.onmyoji_selection,
-            ),
+            # Only this control authorizes an AUTO action. Opponent and
+            # round-six overlays must not inflate weak button evidence.
+            signals.confirm_active,
             seen_onmyoji,
             "self_confirm_active",
         )
@@ -100,12 +99,8 @@ def classify_bp_phase(
     if signals.confirm_locked > 0:
         return DuelBPPhaseClassification(
             DuelBPState.OPPONENT_PICK,
-            max(
-                signals.confirm_locked,
-                signals.opponent_selecting,
-                signals.opponent_locked,
-                signals.onmyoji_selection,
-            ),
+            # Only this control proves our irreversible confirmation.
+            signals.confirm_locked,
             seen_onmyoji,
             "self_confirm_locked",
         )
@@ -126,13 +121,28 @@ def classify_bp_phase(
             "round_six_controls_disappeared",
         )
 
+    # Opponent text reports only the other player's progress.  If our own
+    # confirmation control was missed, it cannot prove that our turn ended or
+    # that round six is READY.  Keep the raw signal for progress metadata but
+    # do not assign it phase authority.
+    opponent_status = max(
+        signals.opponent_selecting,
+        signals.opponent_locked,
+    )
+    if opponent_status > 0:
+        return DuelBPPhaseClassification(
+            None,
+            0.0,
+            seen_onmyoji,
+            "opponent_status_without_own_control",
+        )
+
     # These are deliberately non-action classifications.  They retain useful
     # live state without ever granting AUTO permission to click.
     weak_opponent = max(
-        signals.opponent_selecting,
-        signals.opponent_locked,
         signals.onmyoji_selection,
         signals.weak_selection,
+        signals.legacy_action,
     )
     if weak_opponent > 0:
         return DuelBPPhaseClassification(
@@ -140,14 +150,6 @@ def classify_bp_phase(
             weak_opponent,
             seen_onmyoji,
             "selection_without_active_confirm",
-        )
-
-    if signals.legacy_action > 0:
-        return DuelBPPhaseClassification(
-            DuelBPState.SELF_PICK,
-            signals.legacy_action,
-            seen_onmyoji,
-            "legacy_action_button",
         )
 
     return DuelBPPhaseClassification(

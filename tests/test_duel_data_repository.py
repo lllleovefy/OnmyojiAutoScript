@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
 
-from module.duel_data.models import DuelMatchPatch, DuelPick
+from module.duel_data.models import (
+    DuelMatchPatch,
+    DuelPick,
+    DuelPortraitTemplateInput,
+)
 from module.duel_data.repository import DuelRepository
 
 
@@ -176,6 +181,162 @@ class DuelRepositoryTest(unittest.TestCase):
         self.assertEqual("oas", self.repository.list_strategies()[0].source)
         self.assertTrue(self.repository.save_snapshot("shishen_assets", [{"id": 101}]))
         self.assertFalse(self.repository.save_snapshot("shishen_assets", [{"id": 101}]))
+
+    def test_portrait_templates_are_idempotent_and_labels_are_not_erased(self):
+        template, created = self.repository.upsert_portrait_template(
+            DuelPortraitTemplateInput(
+                path="log/duel/portraits/unresolved.png",
+                view="top",
+                hash="0123456789abcdef",
+                source="video",
+                confidence=0.2,
+            )
+        )
+        self.assertTrue(created)
+        self.assertEqual("unresolved", template.status)
+
+        labeled = self.repository.label_portrait_template(
+            template.id,
+            shishen_id=596,
+            name="神无月",
+            path="596-神无月/596-神无月-上阵-001.png",
+        )
+        self.assertEqual("recognized", labeled.status)
+        self.assertEqual(596, labeled.shishen_id)
+
+        duplicate, duplicate_created = self.repository.upsert_portrait_template(
+            {
+                "path": "log/duel/portraits/reimported.png",
+                "view": "top",
+                "hash": "0123456789abcdef",
+                "source": "capture",
+                "confidence": 0.5,
+            }
+        )
+        self.assertFalse(duplicate_created)
+        self.assertEqual(template.id, duplicate.id)
+        self.assertEqual(596, duplicate.shishen_id)
+        self.assertEqual("神无月", duplicate.name)
+        self.assertEqual(
+            "596-神无月/596-神无月-上阵-001.png",
+            duplicate.path,
+        )
+        self.assertEqual(1, self.repository.portrait_status().recognized)
+        self.assertEqual(0, self.repository.list_unresolved_portrait_templates().total)
+
+    def test_portrait_upsert_is_atomic_across_repository_instances(self):
+        database_path = self.repository.database_path
+        payload = {
+            "path": "log/duel/portraits/concurrent.png",
+            "view": "candidate",
+            "hash": "concurrent-hash",
+            "source": "capture",
+            "confidence": 0.8,
+        }
+
+        def upsert(_):
+            return DuelRepository(database_path).upsert_portrait_template(
+                payload
+            )
+
+        with ThreadPoolExecutor(max_workers=16) as executor:
+            results = list(executor.map(upsert, range(32)))
+
+        self.assertEqual(1, sum(created for _, created in results))
+        self.assertEqual(1, len({template.id for template, _ in results}))
+        connection = sqlite3.connect(database_path)
+        try:
+            count = connection.execute(
+                """SELECT COUNT(*) FROM duel_portrait_templates
+                   WHERE view=? AND hash=?""",
+                ("candidate", "concurrent-hash"),
+            ).fetchone()[0]
+        finally:
+            connection.close()
+        self.assertEqual(1, count)
+
+    def test_portrait_status_and_unresolved_view_filter(self):
+        self.repository.upsert_portrait_template(
+            {
+                "path": "a.png",
+                "view": "top",
+                "hash": "aaaaaaaa",
+                "source": "video",
+                "confidence": 0,
+            }
+        )
+        self.repository.upsert_portrait_template(
+            {
+                "path": "b.png",
+                "shishen_id": 101,
+                "name": "fixture",
+                "view": "candidate",
+                "hash": "bbbbbbbb",
+                "source": "video",
+                "confidence": 0.99,
+            }
+        )
+        status = self.repository.portrait_status()
+        self.assertEqual((2, 1, 1), (status.total, status.recognized, status.unresolved))
+        self.assertEqual({"candidate": 1, "top": 1}, status.by_view)
+        self.assertEqual(0, status.asset_id_count)
+        self.assertEqual(1, status.covered_id_count)
+        self.assertFalse(status.coverage_complete)
+        self.assertTrue(status.onmyoji_ready)
+        self.assertEqual([], status.missing_onmyoji_templates)
+        unresolved = self.repository.list_unresolved_portrait_templates(view="top")
+        self.assertEqual(1, unresolved.total)
+        self.assertEqual("top", unresolved.items[0].view)
+
+    def test_portrait_status_ignores_legacy_onmyoji_templates(self):
+        onmyoji_root = (
+            self.repository.database_path.parent
+            / "portrait_library"
+            / "_onmyoji"
+        )
+        onmyoji_root.mkdir(parents=True)
+        filenames = (
+            "seimi-selected.png",
+            "kagura-selected.png",
+            "hiromasa-selected.png",
+            "yao_bikuni-selected.png",
+            "yorimitsu-selected.png",
+            "michinaga-selected.png",
+        )
+        for filename in filenames:
+            (onmyoji_root / filename).write_bytes(b"not a png")
+
+        status = self.repository.portrait_status()
+
+        self.assertTrue(status.onmyoji_ready)
+        self.assertEqual([], status.missing_onmyoji_templates)
+
+    def test_portrait_coverage_counts_only_current_asset_ids(self):
+        self.repository.save_snapshot(
+            "shishen_assets",
+            [
+                {"id": 101, "name": "mapped"},
+                {"id": 102, "name": "missing"},
+            ],
+        )
+        for identity in (101, 999):
+            self.repository.upsert_portrait_template(
+                {
+                    "path": f"{identity}.png",
+                    "shishen_id": identity,
+                    "name": str(identity),
+                    "view": "candidate",
+                    "hash": f"hash-{identity}",
+                    "source": "test",
+                    "confidence": 1,
+                }
+            )
+
+        status = self.repository.portrait_status()
+
+        self.assertEqual(2, status.asset_id_count)
+        self.assertEqual(1, status.covered_id_count)
+        self.assertFalse(status.coverage_complete)
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 # This Python file uses the following encoding: utf-8
 # @author runhey
 # github https://github.com/runhey
-from time import sleep
+from time import monotonic, sleep
 
 import json
 import random
@@ -21,6 +21,7 @@ from tasks.Duel.bp import (
     BPObservation,
     build_pick_payload,
     DuelBPAssistant,
+    DuelDraftLedger,
     DuelBPMode,
     DuelBPState,
     DuelRecommendation,
@@ -32,14 +33,31 @@ from tasks.Duel.identity import (
     DuelIdentityAdapter,
     DuelIdentityObservation,
     ShikigamiNameIndex,
-    auto_identity_is_complete,
     parse_identity_regions,
 )
 from tasks.Duel.live import DuelLivePublisherMixin
+from tasks.Duel.selection import (
+    OPPONENT_IDENTITY_ROIS,
+    OPPONENT_REVEAL_NAME_ROI,
+    OPPONENT_SLOT_CENTERS,
+    SELECTED_NAME_ROI,
+    VisibleCandidate,
+    candidate_name_roi,
+    candidate_page_fingerprint,
+    choose_visible_candidate,
+    crop_reference_roi,
+    crop_xywh,
+    detect_candidate_base_x,
+    onmyoji_click_point,
+)
 from tasks.Component.SwitchSoul.switch_soul import SwitchSoul
 from tasks.GameUi.page import page_main, page_shikigami_records
 
 """ 斗技 """
+
+
+class _BPActionWindowLost(RuntimeError):
+    """Internal signal for a scan that lost its safe action window."""
 
 
 class ScriptTask(DuelLivePublisherMixin, GameUi, GeneralBattle, SwitchSoul, DuelAssets, SwitchOnmyoji):
@@ -93,9 +111,39 @@ class ScriptTask(DuelLivePublisherMixin, GameUi, GeneralBattle, SwitchSoul, Duel
         self._bp_result_published = False
         self._bp_last_published_state = None
         self._bp_last_published_recommendation = None
+        self._bp_last_published_action = None
         self._bp_own_picks: tuple[str, ...] = ()
-        self._bp_opponent_picks: tuple[str, ...] = ()
+        self._bp_opponent_picks: tuple[str | None, ...] = ()
         self._bp_bans: tuple[str, ...] = ()
+        self._bp_ledger = DuelDraftLedger()
+        self._bp_opponent_slot_meta = [
+            {
+                'slot': slot,
+                'shikigami_id': None,
+                'confidence': 0.0,
+                'source': '',
+                'status': 'pending',
+            }
+            for slot in range(1, 6)
+        ]
+        self._bp_selected_onmyoji = None
+        self._bp_onmyoji_action_issued = False
+        self._bp_onmyoji_attempts = 0
+        self._bp_name_index = None
+        self._bp_names_by_id = {}
+        self._bp_name_ocr_model = None
+        self._bp_strict_name_recognizer = None
+        self._bp_portrait_matcher = None
+        self._bp_portrait_matcher_disabled = False
+        self._bp_selection_in_progress = False
+        self._bp_pending_source = None
+        self._bp_manual_name_candidate = None
+        self._bp_manual_name_frames = 0
+        self._bp_manual_pending_verified = False
+        self._bp_manual_baseline_round = None
+        self._bp_manual_baseline_id = None
+        self._bp_manual_selection_changed = False
+        self._bp_manual_tracking_blocked = False
         self._bp_candidate_provider = None
         self._bp_candidate_cache_key = None
         self._bp_candidate_cache = None
@@ -105,9 +153,34 @@ class ScriptTask(DuelLivePublisherMixin, GameUi, GeneralBattle, SwitchSoul, Duel
         self._bp_identity_missing_in_selection = False
         self._bp_last_identity = DuelIdentityObservation()
         self._bp_seen_onmyoji_selection = False
+        self._bp_onmyoji_signal_frames = 0
+        self._bp_last_phase_signals = None
+        self._bp_reveal_pair_round = None
+        self._bp_reveal_pair_ids = None
+        self._bp_reveal_pair_names = None
+        self._bp_reveal_pair_frames = 0
+        self._bp_reveal_pair_confidence = 0.0
+        self._bp_reveal_episode_consumed = False
         self._bp_confirm_active_seen = False
         self._bp_confirmed_self_rounds = 0
         self._bp_confirmed_opponent_rounds = 0
+        self._bp_sample_collector = None
+        if self.conf.duel_config.bp_sample_capture_enabled:
+            try:
+                from tasks.Duel.sample_capture import DuelBPSampleCollector
+
+                self._bp_sample_collector = DuelBPSampleCollector(
+                    config_name=str(
+                        getattr(self.config, 'config_name', 'default')
+                    ),
+                    interval_seconds=(
+                        self.conf.duel_config.bp_sample_capture_interval
+                    ),
+                )
+            except Exception as exc:
+                logger.warning(
+                    f'Unable to initialize Duel BP sample capture: {exc!r}'
+                )
         self._duel_aborted_before_battle = False
         self._duel_abort_reason = None
 
@@ -182,17 +255,54 @@ class ScriptTask(DuelLivePublisherMixin, GameUi, GeneralBattle, SwitchSoul, Duel
         self._bp_result_published = False
         self._bp_last_published_state = None
         self._bp_last_published_recommendation = None
+        self._bp_last_published_action = None
         self._bp_own_picks = ()
         self._bp_opponent_picks = ()
         self._bp_bans = ()
+        self._bp_ledger.reset()
+        self._bp_opponent_slot_meta = [
+            {
+                'slot': slot,
+                'shikigami_id': None,
+                'confidence': 0.0,
+                'source': '',
+                'status': 'pending',
+            }
+            for slot in range(1, 6)
+        ]
+        self._bp_selected_onmyoji = None
+        self._bp_onmyoji_action_issued = False
+        self._bp_onmyoji_attempts = 0
+        self._bp_selection_in_progress = False
+        self._bp_pending_source = None
+        self._bp_manual_name_candidate = None
+        self._bp_manual_name_frames = 0
+        self._bp_manual_pending_verified = False
+        self._bp_manual_baseline_round = None
+        self._bp_manual_baseline_id = None
+        self._bp_manual_selection_changed = False
+        self._bp_manual_tracking_blocked = False
         self._bp_candidate_cache_key = None
         self._bp_candidate_cache = None
         self._bp_identity_missing_in_selection = False
         self._bp_last_identity = DuelIdentityObservation()
         self._bp_seen_onmyoji_selection = False
+        self._bp_onmyoji_signal_frames = 0
+        self._bp_last_phase_signals = None
+        self._bp_reveal_episode_consumed = False
+        self._reset_bp_reveal_pair_window()
         self._bp_confirm_active_seen = False
         self._bp_confirmed_self_rounds = 0
         self._bp_confirmed_opponent_rounds = 0
+        if self._bp_sample_collector is not None:
+            try:
+                session_dir = self._bp_sample_collector.start_session()
+                logger.info(f'Duel BP sample capture: {session_dir}')
+            except Exception as exc:
+                self._bp_sample_collector = None
+                logger.warning(
+                    f'Unable to start Duel BP sample capture: {exc!r}'
+                )
         if self._bp_identity_tracker is not None:
             try:
                 self._bp_identity_tracker.clear_tracks()
@@ -261,6 +371,15 @@ class ScriptTask(DuelLivePublisherMixin, GameUi, GeneralBattle, SwitchSoul, Duel
 
     def create_bp_assistant(self) -> DuelBPAssistant:
         config = self.conf.duel_config
+        mode = config.bp_mode
+        if mode == DuelBPMode.AUTO:
+            failures = self._bp_auto_prerequisite_failures()
+            if failures:
+                logger.warning(
+                    'Duel BP AUTO is fail-closed; using recommend mode: '
+                    + ', '.join(failures)
+                )
+                mode = DuelBPMode.RECOMMEND
         recommend_confidence = config.bp_recommend_confidence
         auto_confidence = config.bp_auto_confidence
         if auto_confidence < recommend_confidence:
@@ -270,12 +389,54 @@ class ScriptTask(DuelLivePublisherMixin, GameUi, GeneralBattle, SwitchSoul, Duel
             )
             auto_confidence = recommend_confidence
         return DuelBPAssistant(
-            mode=config.bp_mode,
+            mode=mode,
             stable_frames=config.bp_stable_frames,
             recommend_confidence=recommend_confidence,
             auto_confidence=auto_confidence,
             personal_min_samples=config.bp_personal_min_samples,
         )
+
+    def _bp_auto_prerequisite_failures(self) -> tuple[str, ...]:
+        """Return persistent/material gates that must pass before AUTO."""
+
+        from pathlib import Path
+
+        from module.duel_data.repository import DuelRepository
+        from tasks.Duel.name_recognition import normalize_shishen_assets
+
+        config = self.conf.duel_config
+        failures = []
+        if not config.bp_auto_verified:
+            failures.append('offline_and_recommend_validation_missing')
+
+        project_root = Path(__file__).resolve().parents[2]
+        canonical_library_root = (
+            project_root / 'config' / 'duel' / 'portrait_library'
+        ).resolve()
+        configured_library_root = Path(config.bp_portrait_library).expanduser()
+        if not configured_library_root.is_absolute():
+            configured_library_root = project_root / configured_library_root
+        configured_library_root = configured_library_root.resolve()
+        if configured_library_root != canonical_library_root:
+            failures.append('portrait_library_not_canonical')
+        expected_assets: dict[str, str] = {}
+        try:
+            assets = DuelRepository(
+                project_root / 'config' / 'duel' / 'duel.sqlite3'
+            ).latest_snapshot('shishen_assets')
+            assets = normalize_shishen_assets(assets)
+            expected_assets = {
+                str(item['id']): str(item.get('name') or '').strip()
+                for item in assets
+                if item.get('id') is not None
+                and str(item.get('name') or '').strip()
+            }
+            if not expected_assets:
+                failures.append('shishen_assets_unavailable')
+        except (OSError, TypeError, ValueError):
+            failures.append('shishen_assets_unavailable')
+
+        return tuple(failures)
 
     def recognize_bp_observation(self) -> BPObservation:
         """Recognize current Duel BP phase and only locked spatial slots."""
@@ -312,6 +473,7 @@ class ScriptTask(DuelLivePublisherMixin, GameUi, GeneralBattle, SwitchSoul, Duel
             # Recognition must fail closed. In particular, AUTO must never
             # turn a transport error into an artificial 1.0 confidence.
             logger.warning(f'Unable to recognize Duel BP frame: {exc!r}')
+            self._bp_last_phase_signals = None
             return BPObservation(
                 self.bp_assistant.state_machine.state,
                 confidence=0.0,
@@ -333,7 +495,13 @@ class ScriptTask(DuelLivePublisherMixin, GameUi, GeneralBattle, SwitchSoul, Duel
                     )
             signal_scores[signal_name] = min(signal_score, 1.0)
 
+        signal_scores['onmyoji_selection'] = (
+            self._stable_bp_onmyoji_signal(
+                signal_scores.get('onmyoji_selection', 0.0)
+            )
+        )
         signals = DuelBPPhaseSignals(**signal_scores)
+        self._bp_last_phase_signals = signals
         self._update_bp_confirmation_progress(signals)
         previous_state = self.bp_assistant.state_machine.state
         classification = classify_bp_phase(
@@ -347,75 +515,35 @@ class ScriptTask(DuelLivePublisherMixin, GameUi, GeneralBattle, SwitchSoul, Duel
         recognized_state = classification.state
         recognized_confidence = classification.confidence
         if recognized_state is not None:
-            identity = self.recognize_bp_identities(recognized_state)
-            self._bp_last_identity = identity
+            # Our side is authoritative only after OAS itself clicked,
+            # verified and confirmed a candidate. Opponent positions are kept
+            # nullable in the draft ledger. Neither side depends on the old
+            # generic top-row detector, whose missing boxes used to reduce a
+            # perfectly valid phase confidence to zero.
+            ledger = getattr(self, '_bp_ledger', None)
             own_picks = (
-                identity.own_picks
-                if len(identity.own_picks) >= len(self._bp_own_picks)
-                else self._bp_own_picks
+                ledger.own_picks if ledger is not None else self._bp_own_picks
             )
             opponent_picks = (
-                identity.opponent_picks
-                if len(identity.opponent_picks) >= len(self._bp_opponent_picks)
+                ledger.opponent_context
+                if ledger is not None
                 else self._bp_opponent_picks
             )
-            bans = (
-                identity.bans
-                if len(identity.bans) >= len(self._bp_bans)
-                else self._bp_bans
-            )
-            identity_complete = auto_identity_is_complete(
-                state=recognized_state.value,
-                previous_state=previous_state.value,
-                observation=identity,
-                previous_own_picks=self._bp_own_picks,
-                previous_opponent_picks=self._bp_opponent_picks,
-                previous_bans=self._bp_bans,
-                is_celeb=self.is_celeb,
-            )
-            auto_selection_state = recognized_state in (
-                DuelBPState.BAN,
-                DuelBPState.SELF_PICK,
-                DuelBPState.OPPONENT_PICK,
-                DuelBPState.READY,
-            )
-            if (
-                self.bp_assistant.mode == DuelBPMode.AUTO
-                and auto_selection_state
-                and not identity_complete
-            ):
-                recognized_confidence = 0.0
-                self._bp_identity_missing_in_selection = True
-            elif identity.confidence is not None:
-                recognized_confidence = min(
-                    recognized_confidence,
-                    identity.confidence,
+
+            # Keep the old detector only as optional sample metadata. It may
+            # never alter phase, recommendation or AUTO action confidence.
+            if getattr(self, '_bp_sample_collector', None) is not None:
+                self._bp_last_identity = self.recognize_bp_identities(
+                    recognized_state
                 )
-            elif (
-                self.bp_assistant.mode == DuelBPMode.AUTO
-                and auto_selection_state
-            ):
-                allow_unidentified_first_pick = (
-                    recognized_state == DuelBPState.SELF_PICK
-                    and previous_state == DuelBPState.BAN
-                    and not self.is_celeb
-                    and not self._bp_identity_missing_in_selection
-                    and not self._bp_own_picks
-                    and not self._bp_opponent_picks
-                    and not self._bp_bans
-                )
-                if not allow_unidentified_first_pick:
-                    recognized_confidence = 0.0
-                if recognized_state in (DuelBPState.OPPONENT_PICK, DuelBPState.READY) or (
-                    recognized_state == DuelBPState.BAN and self.is_celeb
-                ):
-                    self._bp_identity_missing_in_selection = True
             return BPObservation(
                 recognized_state,
                 confidence=recognized_confidence,
                 own_picks=own_picks,
                 opponent_picks=opponent_picks,
-                bans=bans,
+                # Ban recognition is intentionally excluded from the new
+                # recommendation context.
+                bans=(),
             )
         return BPObservation(
             self.bp_assistant.state_machine.state,
@@ -424,6 +552,29 @@ class ScriptTask(DuelLivePublisherMixin, GameUi, GeneralBattle, SwitchSoul, Duel
             opponent_picks=self._bp_opponent_picks,
             bans=self._bp_bans,
         )
+
+    def _stable_bp_onmyoji_signal(self, score: float) -> float:
+        """Admit the round-six roster only in context and after three frames."""
+
+        ledger = getattr(self, '_bp_ledger', None)
+        expected = bool(
+            ledger is not None
+            and (
+                ledger.completed
+                or (
+                    len(ledger.own_picks) == 4
+                    and ledger.pending_own_pick is not None
+                )
+            )
+        )
+        normalized = max(0.0, min(float(score or 0.0), 1.0))
+        if not expected or normalized <= 0:
+            self._bp_onmyoji_signal_frames = 0
+            return 0.0
+        self._bp_onmyoji_signal_frames += 1
+        if self._bp_onmyoji_signal_frames < 3:
+            return 0.0
+        return normalized
 
     def _update_bp_confirmation_progress(
         self, signals: DuelBPPhaseSignals
@@ -467,9 +618,14 @@ class ScriptTask(DuelLivePublisherMixin, GameUi, GeneralBattle, SwitchSoul, Duel
                 from module.duel_data.repository import DuelRepository
                 from oashya.labels import id2name
                 from oashya.tracker import Tracker
+                from tasks.Duel.name_recognition import (
+                    normalize_shishen_assets,
+                )
 
-                assets = DuelRepository().latest_snapshot('shishen_assets')
-                if not isinstance(assets, list) or not assets:
+                assets = normalize_shishen_assets(
+                    DuelRepository().latest_snapshot('shishen_assets')
+                )
+                if not assets:
                     raise RuntimeError(
                         'Duel identity recognition requires a shishen mapping snapshot'
                     )
@@ -509,7 +665,8 @@ class ScriptTask(DuelLivePublisherMixin, GameUi, GeneralBattle, SwitchSoul, Duel
             return DuelIdentityObservation()
 
     def _bp_candidate_groups(self, observation: BPObservation) -> dict:
-        cache_key = observation.fingerprint
+        pool_ids = self._bp_shishen_pool_ids()
+        cache_key = (observation.fingerprint, tuple(sorted(pool_ids)))
         if cache_key == self._bp_candidate_cache_key and self._bp_candidate_cache is not None:
             return self._bp_candidate_cache
         try:
@@ -535,15 +692,24 @@ class ScriptTask(DuelLivePublisherMixin, GameUi, GeneralBattle, SwitchSoul, Duel
             converted = []
             for item in raw_groups.get(group_name, ()):
                 try:
+                    shikigami_id = str(item['shikigami_id'])
+                    if pool_ids and shikigami_id not in pool_ids:
+                        continue
+                    if shikigami_id in observation.unavailable_shikigami:
+                        continue
                     converted.append(
                         DuelRecommendationCandidate(
-                            shikigami_id=str(item['shikigami_id']),
+                            shikigami_id=shikigami_id,
                             source=RecommendationSource(str(item['source'])),
                             score=float(item.get('score', 0.0)),
                             confidence=float(item.get('confidence', 0.0)),
                             priority=int(item.get('priority', 0)),
                             sample_size=int(item.get('sample_size', 0)),
                             reason=str(item.get('reason') or ''),
+                            context_level=item.get('context_level'),
+                            context_sample_size=int(
+                                item.get('context_sample_size', 0)
+                            ),
                         )
                     )
                 except (KeyError, TypeError, ValueError) as exc:
@@ -552,6 +718,25 @@ class ScriptTask(DuelLivePublisherMixin, GameUi, GeneralBattle, SwitchSoul, Duel
         self._bp_candidate_cache_key = cache_key
         self._bp_candidate_cache = groups
         return groups
+
+    def _bp_shishen_pool_ids(self) -> frozenset[str]:
+        values = getattr(self.conf.duel_config, 'bp_shishen_pool', ())
+        return frozenset(str(int(value)) for value in values)
+
+    def _filter_bp_recommendations_by_pool(
+        self,
+        recommendations: tuple[DuelRecommendation, ...],
+    ) -> tuple[DuelRecommendation, ...]:
+        pool_ids = self._bp_shishen_pool_ids()
+        unavailable = self._bp_ledger.unavailable_ids
+        return tuple(
+            item
+            for item in recommendations
+            if (
+                (not pool_ids or str(item.shikigami_id) in pool_ids)
+                and str(item.shikigami_id) not in unavailable
+            )
+        )
 
     def bp_rule_candidates(
         self, observation: BPObservation
@@ -571,121 +756,1496 @@ class ScriptTask(DuelLivePublisherMixin, GameUi, GeneralBattle, SwitchSoul, Duel
         """Return one-time external cold-start candidates, if available."""
         return self._bp_candidate_groups(observation)['external']
 
+    def _sync_bp_ledger(self) -> None:
+        ledger = self._bp_ledger
+        self._bp_own_picks = ledger.own_picks
+        self._bp_opponent_picks = ledger.opponent_context
+        # Any accepted context change must invalidate the provider cache.
+        self._bp_candidate_cache_key = None
+        self._bp_candidate_cache = None
+
+    def _bp_round(self) -> int:
+        ledger = getattr(self, '_bp_ledger', None)
+        return ledger.round_number if ledger is not None else 1
+
+    def _ensure_bp_name_index(self) -> None:
+        if self._bp_name_index is not None:
+            return
+        from module.duel_data.repository import DuelRepository
+        from tasks.Duel.name_recognition import normalize_shishen_assets
+
+        assets = normalize_shishen_assets(
+            DuelRepository().latest_snapshot('shishen_assets')
+        )
+        if not assets:
+            raise RuntimeError(
+                'Duel BP requires the local shishen_assets snapshot'
+            )
+        self._bp_name_index = ShikigamiNameIndex(assets)
+        self._bp_names_by_id = {
+            str(item['id']): str(item.get('name') or item['id'])
+            for item in assets
+            if isinstance(item, dict) and item.get('id') is not None
+        }
+
+    def _bp_name(self, shikigami_id: object | None) -> str:
+        if shikigami_id in (None, '', 0, '0'):
+            return 'unknown'
+        try:
+            self._ensure_bp_name_index()
+        except Exception:
+            return str(shikigami_id)
+        return self._bp_names_by_id.get(
+            str(shikigami_id), str(shikigami_id)
+        )
+
+    def _bp_opponent_slots_payload(self) -> list[dict]:
+        meta_by_slot = {
+            int(item['slot']): item
+            for item in getattr(self, '_bp_opponent_slot_meta', ())
+        }
+        ledger = getattr(self, '_bp_ledger', None)
+        values = (
+            ledger.opponent_slots
+            if ledger is not None
+            else tuple(self._bp_opponent_picks) + (None,) * 5
+        )
+        payload = []
+        for slot in range(1, 6):
+            value = values[slot - 1] if slot <= len(values) else None
+            metadata = meta_by_slot.get(slot, {})
+            wire_id = self._duel_shikigami_id(value)
+            payload.append(
+                {
+                    'slot': slot,
+                    'shishen_id': wire_id,
+                    'shikigami_id': wire_id,
+                    'confidence': float(
+                        metadata.get('confidence') or 0.0
+                    ),
+                    'source': str(metadata.get('source') or ''),
+                    'status': (
+                        'recognized'
+                        if wire_id is not None
+                        else str(metadata.get('status') or 'pending')
+                    ),
+                }
+            )
+        return payload
+
+    def _publish_bp_action(
+        self,
+        action: str,
+        *,
+        status: str,
+        shikigami_id: object | None = None,
+        confidence: float | None = None,
+        message: str = '',
+        round_number: int | None = None,
+        **extra,
+    ) -> None:
+        if round_number is None:
+            round_number = self._bp_round()
+        key = (
+            action,
+            status,
+            round_number,
+            str(shikigami_id) if shikigami_id is not None else None,
+            confidence,
+            message,
+            tuple(sorted((str(key), str(value)) for key, value in extra.items())),
+        )
+        if key == getattr(self, '_bp_last_published_action', None):
+            return
+        payload = {
+            'action': action,
+            'status': status,
+            'state': self.bp_assistant.state_machine.state.value,
+            'phase': self.bp_assistant.state_machine.state.value,
+            'mode': self.bp_assistant.mode.value,
+            'round': round_number,
+            'shishen_id': self._duel_shikigami_id(shikigami_id),
+            'confidence': confidence,
+            'message': message,
+            **extra,
+        }
+        self.publish_bp_live_event('action', payload)
+        self._bp_last_published_action = key
+
+    def _ensure_bp_name_recognizer(self) -> None:
+        self._ensure_bp_name_index()
+        if self._bp_name_ocr_model is None:
+            from module.ocr.models import get_ocr_model
+
+            self._bp_name_ocr_model = get_ocr_model("ch")
+        if self._bp_strict_name_recognizer is None:
+            from tasks.Duel.name_recognition import StrictNameRecognizer
+            from module.duel_data.repository import DuelRepository
+
+            assets = DuelRepository().latest_snapshot('shishen_assets')
+            self._bp_strict_name_recognizer = StrictNameRecognizer(assets)
+
+    def _recognize_bp_name_roi(
+        self,
+        roi: tuple[int, int, int, int],
+        *,
+        min_consensus: int = 2,
+    ) -> dict:
+        """Resolve one vertical name crop; uncertainty stays unknown.
+
+        Candidate location is reversible, so an exact canonical/alias match
+        may use one OCR crop. Irreversible confirmation keeps the default
+        two-crop consensus and still requires three stable frames.
+        """
+
+        self._ensure_bp_name_recognizer()
+        crop = crop_reference_roi(self.device.image, roi)
+        candidate = self._bp_strict_name_recognizer.recognize(
+            crop,
+            self._bp_name_ocr_model,
+            min_consensus=min_consensus,
+        )
+        resolved = candidate.resolved
+        accepted = bool(
+            candidate.accepted
+            or (
+                min_consensus == 1
+                and resolved is not None
+                and candidate.method == 'exact'
+                and candidate.consensus >= 1
+            )
+        )
+        result = {
+            'shikigami_id': (
+                resolved.shikigami_id if accepted else None
+            ),
+            'name': resolved.name if accepted else None,
+            'confidence': (
+                float(resolved.confidence) if accepted else 0.0
+            ),
+            'text': str(candidate.text or ''),
+            'consensus': int(candidate.consensus),
+            'method': str(candidate.method),
+            'variant': str(candidate.variant),
+        }
+        if self.conf.duel_config.bp_log_raw_frames:
+            logger.debug(
+                'Duel BP raw name: '
+                f'roi={roi} text={result["text"]!r} '
+                f'id={result["shikigami_id"] or "unknown"} '
+                f'confidence={result["confidence"]:.3f} '
+                f'consensus={result["consensus"]}'
+            )
+        return result
+
+    def _recognize_bp_name_stable(
+        self,
+        roi: tuple[int, int, int, int],
+        *,
+        expected_id: object | None = None,
+        frames: int = 3,
+        require_actionable: bool = False,
+        min_confidence: float | None = None,
+    ) -> dict | None:
+        """Require the same strict name result on consecutive screenshots."""
+
+        expected = str(expected_id) if expected_id is not None else None
+        stable_id = None
+        stable_results = []
+        for frame_index in range(frames):
+            if frame_index:
+                sleep(0.25)
+                self.screenshot()
+            if require_actionable and not self._bp_actionable_self_pick():
+                stable_id = None
+                stable_results = []
+                continue
+            result = self._recognize_bp_name_roi(roi)
+            current = result['shikigami_id']
+            if current is None or (
+                expected is not None and str(current) != expected
+            ):
+                stable_id = None
+                stable_results = []
+                continue
+            if str(current) != stable_id:
+                stable_id = str(current)
+                stable_results = [result]
+            else:
+                stable_results.append(result)
+        if len(stable_results) < frames:
+            return None
+        stable_confidence = min(
+            item['confidence'] for item in stable_results
+        )
+        if (
+            min_confidence is not None
+            and stable_confidence < float(min_confidence)
+        ):
+            return None
+        best = max(
+            stable_results,
+            key=lambda item: (
+                item['confidence'],
+                item['consensus'],
+            ),
+        )
+        return {
+            **best,
+            # Stability is an independent requirement; it must not promote a
+            # lower OCR score through the irreversible 0.98 AUTO gate.
+            'confidence': stable_confidence,
+            'stable_frames': frames,
+        }
+
+    def _reset_bp_reveal_pair_window(self) -> None:
+        self._bp_reveal_pair_round = None
+        self._bp_reveal_pair_ids = None
+        self._bp_reveal_pair_names = None
+        self._bp_reveal_pair_frames = 0
+        self._bp_reveal_pair_confidence = 0.0
+
+    def _finalize_bp_reveal_pair_if_ready(self) -> bool:
+        """Atomically commit one stable, locked opponent reveal."""
+
+        frames = int(getattr(self, '_bp_reveal_pair_frames', 0) or 0)
+        round_number = getattr(self, '_bp_reveal_pair_round', None)
+        pair = getattr(self, '_bp_reveal_pair_ids', None)
+        names = getattr(self, '_bp_reveal_pair_names', None)
+        if frames < 3 or round_number is None or pair is None:
+            return False
+
+        ledger = self._bp_ledger
+        slot = int(round_number)
+        if not 1 <= slot <= 5:
+            self._bp_reveal_episode_consumed = True
+            self._reset_bp_reveal_pair_window()
+            return False
+        if ledger.opponent_rounds_seen >= slot:
+            self._bp_reveal_episode_consumed = True
+            self._reset_bp_reveal_pair_window()
+            return False
+        if slot != ledger.opponent_rounds_seen + 1:
+            return False
+        own_id, opponent_id = (str(pair[0]), str(pair[1]))
+        discovered_own = False
+        if len(ledger.own_picks) < slot:
+            if ledger.pending_own_pick is not None:
+                # The pair can stabilize before the debounced phase
+                # transition commits our pending pick. Keep it cached for
+                # this same frame's post-transition finalization.
+                return False
+            if self.bp_assistant.mode not in (
+                DuelBPMode.OBSERVE,
+                DuelBPMode.RECOMMEND,
+            ):
+                # AUTO owns an authoritative click ledger and may never
+                # invent our side from OCR after the fact.
+                return False
+            ledger.begin_own_pick(own_id)
+            ledger.commit_pending_own_pick(expected_id=own_id)
+            discovered_own = True
+            if self.bp_assistant.mode == DuelBPMode.RECOMMEND:
+                # A late reveal resolves the fail-closed "default highlight"
+                # ambiguity and permits the following round to recommend
+                # again from the now-complete paired ledger.
+                self._bp_manual_tracking_blocked = False
+                self._bp_manual_baseline_round = None
+                self._bp_manual_baseline_id = None
+                self._bp_manual_selection_changed = False
+                self._bp_manual_name_candidate = None
+                self._bp_manual_name_frames = 0
+                self._bp_manual_pending_verified = False
+        elif str(ledger.own_picks[slot - 1]) != own_id:
+            self._reset_bp_reveal_pair_window()
+            return False
+
+        confidence = float(
+            getattr(self, '_bp_reveal_pair_confidence', 0.0) or 0.0
+        )
+        source = (
+            'reveal_name'
+            if confidence >= self.conf.duel_config.bp_auto_confidence
+            else 'reveal_name_relaxed'
+        )
+        ledger.record_opponent_pick(slot, opponent_id)
+        if discovered_own:
+            own_name = (
+                str(names[0])
+                if names is not None and names[0]
+                else self._bp_name(own_id)
+            )
+            logger.info(
+                f'BP[round={slot}][own] slot={slot} id={own_id} '
+                f'name={own_name} confidence={confidence:.3f} '
+                f'source={source} confirmed=true'
+            )
+        opponent_name = (
+            str(names[1])
+            if names is not None and len(names) > 1 and names[1]
+            else self._bp_name(opponent_id)
+        )
+        self._bp_opponent_slot_meta[slot - 1] = {
+            'slot': slot,
+            'shikigami_id': opponent_id,
+            'confidence': confidence,
+            'source': source,
+            'status': 'recognized',
+        }
+        self._sync_bp_ledger()
+        logger.info(
+            f'BP[round={slot}][opponent] slot={slot} '
+            f'id={opponent_id} name={opponent_name} '
+            f'confidence={confidence:.3f} source={source}'
+        )
+        # A locked reveal commonly remains visible for many main-loop frames.
+        # Consume the whole episode, not just its three-frame vote window, so
+        # the same pair cannot be interpreted as the following round.  Only
+        # a positively observed active confirmation control rearms tracking.
+        self._bp_reveal_episode_consumed = True
+        self._reset_bp_reveal_pair_window()
+        return True
+
+    def _observe_bp_reveal_pair_frame(self) -> bool:
+        """Track both locked name ribbons once per main-loop screenshot.
+
+        Unlike the blocking three-screenshot verifier used immediately before
+        an irreversible click, this tracker reads both sides from the same
+        frame. It therefore cannot combine a previous reveal with the next
+        round while the drum/transition animation is running.
+        """
+
+        signals = getattr(self, '_bp_last_phase_signals', None)
+        if signals is None:
+            self._reset_bp_reveal_pair_window()
+            return False
+
+        # This is the only strong boundary between two reveal episodes.  A
+        # missing/weak template frame must not rearm a consumed locked screen.
+        if signals.confirm_active > 0 and signals.confirm_locked <= 0:
+            self._bp_reveal_episode_consumed = False
+            self._reset_bp_reveal_pair_window()
+            return False
+
+        if (
+            getattr(self, '_bp_reveal_episode_consumed', False)
+            or signals.confirm_locked <= 0
+            or signals.confirm_active > 0
+            or signals.opponent_selecting > 0
+            or signals.opponent_locked > 0
+            or self._bp_seen_onmyoji_selection
+        ):
+            self._reset_bp_reveal_pair_window()
+            return False
+
+        ledger = self._bp_ledger
+        slot = ledger.opponent_rounds_seen + 1
+        if not 1 <= slot <= 5:
+            self._reset_bp_reveal_pair_window()
+            return False
+
+        pending = ledger.pending_own_pick
+        if slot <= len(ledger.own_picks):
+            expected_own_id = str(ledger.own_picks[slot - 1])
+        elif slot == len(ledger.own_picks) + 1:
+            if pending is not None:
+                expected_own_id = str(pending)
+            elif self.bp_assistant.mode in (
+                DuelBPMode.OBSERVE,
+                DuelBPMode.RECOMMEND,
+            ):
+                expected_own_id = None
+            else:
+                self._reset_bp_reveal_pair_window()
+                return False
+        else:
+            self._reset_bp_reveal_pair_window()
+            return False
+
+        try:
+            own = self._recognize_bp_name_roi(
+                SELECTED_NAME_ROI,
+                min_consensus=1,
+            )
+            opponent = self._recognize_bp_name_roi(
+                OPPONENT_REVEAL_NAME_ROI,
+                min_consensus=1,
+            )
+        except Exception as exc:
+            self._reset_bp_reveal_pair_window()
+            logger.warning(f'Duel BP reveal-name recognition failed: {exc!r}')
+            return False
+
+        own_id = own.get('shikigami_id')
+        opponent_id = opponent.get('shikigami_id')
+        own_confidence = float(own.get('confidence') or 0.0)
+        opponent_confidence = float(opponent.get('confidence') or 0.0)
+        if (
+            own_id is None
+            or opponent_id is None
+            or not self._bp_reveal_name_vote_accepted(own)
+            or not self._bp_reveal_name_vote_accepted(opponent)
+        ):
+            self._reset_bp_reveal_pair_window()
+            return False
+
+        own_id = str(own_id)
+        opponent_id = str(opponent_id)
+        if expected_own_id is not None and own_id != expected_own_id:
+            if self.conf.duel_config.bp_log_raw_frames:
+                logger.debug(
+                    'Duel BP reveal-name mismatch: '
+                    f'round={slot} expected_own={expected_own_id} '
+                    f'observed_own={own_id} opponent={opponent_id}'
+                )
+            self._reset_bp_reveal_pair_window()
+            return False
+
+        pair = (own_id, opponent_id)
+        pair_confidence = min(own_confidence, opponent_confidence)
+        if (
+            self._bp_reveal_pair_round == slot
+            and self._bp_reveal_pair_ids == pair
+        ):
+            self._bp_reveal_pair_frames += 1
+            self._bp_reveal_pair_confidence = min(
+                self._bp_reveal_pair_confidence,
+                pair_confidence,
+            )
+        else:
+            self._bp_reveal_pair_round = slot
+            self._bp_reveal_pair_ids = pair
+            self._bp_reveal_pair_names = (
+                str(own.get('name') or self._bp_name(own_id)),
+                str(opponent.get('name') or self._bp_name(opponent_id)),
+            )
+            self._bp_reveal_pair_frames = 1
+            self._bp_reveal_pair_confidence = pair_confidence
+
+        if self.conf.duel_config.bp_log_raw_frames:
+            logger.debug(
+                'Duel BP raw reveal names: '
+                f'round={slot} own={own_id} opponent={opponent_id} '
+                f'confidence={pair_confidence:.3f} '
+                f'stable={self._bp_reveal_pair_frames}/3'
+            )
+        return self._finalize_bp_reveal_pair_if_ready()
+
+    def _bp_reveal_name_vote_accepted(self, result: dict) -> bool:
+        """Accept low OCR scores only when spatial consensus is strong.
+
+        The OCR service's probability describes the decorated glyph pixels,
+        not the resolved identity. Real locked ribbons can score around 0.6
+        even when two independent crops both contain the same registered
+        name. Fuzzy identities keep the configured recommendation threshold;
+        only exact/substring identities with two spatial votes get this
+        bounded relaxation, and the caller still requires three temporal
+        pair votes plus either an authoritative AUTO own-ID match or the
+        non-clicking OBSERVE/RECOMMEND paired-reveal contract.
+        """
+
+        if result.get('shikigami_id') is None:
+            return False
+        confidence = float(result.get('confidence') or 0.0)
+        configured = float(
+            self.conf.duel_config.bp_recommend_confidence
+        )
+        if confidence >= configured:
+            return True
+        relaxed_floor = max(0.55, configured - 0.35)
+        return bool(
+            str(result.get('method') or '') in ('exact', 'substring')
+            and int(result.get('consensus') or 0) >= 2
+            and confidence >= relaxed_floor
+        )
+
+    def _bp_actionable_self_pick(self) -> bool:
+        """Verify that the current frame is still our actionable BP turn."""
+
+        try:
+            observation = self.recognize_bp_observation()
+            return bool(
+                observation.state == DuelBPState.SELF_PICK
+                and observation.confidence
+                >= self.conf.duel_config.bp_auto_confidence
+                and self.appear(self.I_D_BP_CONFIRM_ACTIVE)
+            )
+        except Exception as exc:
+            logger.warning(
+                f'Duel BP action-window verification failed: {exc!r}'
+            )
+            return False
+
+    def _recognize_visible_bp_candidates(
+        self,
+    ) -> tuple[VisibleCandidate, ...]:
+        base_x = detect_candidate_base_x(self.device.image)
+        candidates = []
+        for slot in range(1, 9):
+            result = self._recognize_bp_name_roi(
+                candidate_name_roi(slot, base_x=base_x),
+                min_consensus=1,
+            )
+            shikigami_id = result['shikigami_id']
+            confidence = float(result['confidence'])
+            if (
+                shikigami_id is None
+                or (
+                    result.get('method') != 'exact'
+                    and confidence
+                    < self.conf.duel_config.bp_auto_confidence
+                )
+            ):
+                continue
+            raw_text = result['text']
+            candidates.append(
+                VisibleCandidate(
+                    slot=slot,
+                    shikigami_id=str(shikigami_id),
+                    name=str(result['name'] or shikigami_id),
+                    confidence=confidence,
+                    disabled='禁' in raw_text,
+                    source='name',
+                    base_x=base_x,
+                )
+            )
+        return tuple(candidates)
+
+    def _save_unresolved_opponent_portrait(
+        self,
+        slot: int,
+        *,
+        highest_candidate: str | None = None,
+        confidence: float = 0.0,
+    ) -> None:
+        """Persist an unknown live portrait for correction without blocking BP."""
+
+        try:
+            import hashlib
+            from pathlib import Path
+
+            import cv2
+
+            crop = crop_xywh(
+                self.device.image, OPPONENT_IDENTITY_ROIS[slot - 1]
+            )
+            ok, encoded = cv2.imencode('.png', crop)
+            if not ok:
+                return
+            content = encoded.tobytes()
+            digest = hashlib.sha256(content).hexdigest()
+            library = Path(self.conf.duel_config.bp_portrait_library)
+            unresolved = library / '_unresolved'
+            unresolved.mkdir(parents=True, exist_ok=True)
+            image_path = unresolved / f'{digest}.png'
+            if not image_path.exists():
+                image_path.write_bytes(content)
+            sidecar = unresolved / f'{digest}.json'
+            if not sidecar.exists():
+                sidecar.write_text(
+                    json.dumps(
+                        {
+                            'slot': slot,
+                            'view': '上阵',
+                            'highest_candidate': highest_candidate,
+                            'confidence': confidence,
+                            'roi': list(OPPONENT_IDENTITY_ROIS[slot - 1]),
+                        },
+                        ensure_ascii=False,
+                        separators=(',', ':'),
+                    ),
+                    encoding='utf-8',
+                )
+            from module.duel_data.repository import DuelRepository
+
+            DuelRepository().upsert_portrait_template(
+                {
+                    'path': image_path.relative_to(library).as_posix(),
+                    'view': '上阵',
+                    'hash': digest,
+                    'source': 'live_unknown',
+                    'confidence': confidence,
+                }
+            )
+        except Exception as exc:
+            logger.warning(
+                f'Unable to save unresolved Duel portrait: {exc!r}'
+            )
+
+    def _ensure_bp_portrait_matcher(self) -> None:
+        if (
+            self._bp_portrait_matcher is not None
+            or self._bp_portrait_matcher_disabled
+        ):
+            return
+        try:
+            from tasks.Duel.portrait_library import PortraitMatcher
+
+            self._bp_portrait_matcher = PortraitMatcher(
+                self.conf.duel_config.bp_portrait_library
+            )
+        except Exception as exc:
+            self._bp_portrait_matcher_disabled = True
+            logger.warning(
+                f'Duel portrait matcher is unavailable: {exc!r}'
+            )
+
+    @staticmethod
+    def _bp_match_value(match, key: str, default=None):
+        if isinstance(match, dict):
+            return match.get(key, default)
+        return getattr(match, key, default)
+
+    def _recognize_opponent_portrait_stable(
+        self, slot: int, *, frames: int = 3
+    ) -> tuple[dict | None, str | None, float]:
+        """Return a high-confidence three-frame portrait match and diagnostics."""
+
+        self._ensure_bp_portrait_matcher()
+        matcher = self._bp_portrait_matcher
+        if matcher is None:
+            return None, None, 0.0
+        stable_id = None
+        stable_matches = []
+        highest_candidate = None
+        highest_confidence = 0.0
+        for frame_index in range(frames):
+            if frame_index:
+                sleep(0.25)
+                self.screenshot()
+            crop = crop_xywh(
+                self.device.image, OPPONENT_IDENTITY_ROIS[slot - 1]
+            )
+            match = matcher.match(
+                crop,
+                views=('上阵', '阵容', '候选'),
+            )
+            current_id = self._bp_match_value(
+                match, 'shikigami_id'
+            )
+            confidence = float(
+                self._bp_match_value(match, 'confidence', 0.0) or 0.0
+            )
+            candidate = self._bp_match_value(
+                match, 'highest_candidate'
+            )
+            if candidate is not None and confidence >= highest_confidence:
+                highest_candidate = str(candidate)
+                highest_confidence = confidence
+            if self.conf.duel_config.bp_log_raw_frames:
+                logger.debug(
+                    'Duel BP raw portrait: '
+                    f'slot={slot} id={current_id or "unknown"} '
+                    f'confidence={confidence:.3f} '
+                    f'highest={candidate or "unknown"}'
+                )
+            if current_id is None or confidence < 0.98:
+                stable_id = None
+                stable_matches = []
+                continue
+            current_id = str(current_id)
+            if current_id != stable_id:
+                stable_id = current_id
+                stable_matches = [match]
+            else:
+                stable_matches.append(match)
+        if len(stable_matches) < frames:
+            return None, highest_candidate, highest_confidence
+        best = max(
+            stable_matches,
+            key=lambda item: float(
+                self._bp_match_value(item, 'confidence', 0.0) or 0.0
+            ),
+        )
+        return (
+            {
+                'shikigami_id': str(
+                    self._bp_match_value(best, 'shikigami_id')
+                ),
+                'name': str(
+                    self._bp_match_value(best, 'name')
+                    or self._bp_name(stable_id)
+                ),
+                'confidence': min(
+                    float(
+                        self._bp_match_value(
+                            item, 'confidence', 0.0
+                        )
+                        or 0.0
+                    )
+                    for item in stable_matches
+                ),
+                'source': str(
+                    self._bp_match_value(best, 'source', 'portrait')
+                    or 'portrait'
+                ),
+            },
+            highest_candidate,
+            highest_confidence,
+        )
+
+    def _observe_next_bp_opponent(self, *, allow_click: bool = True) -> bool:
+        """Resolve exactly one newly revealed opponent slot, or record unknown."""
+
+        ledger = self._bp_ledger
+        if ledger.opponent_rounds_seen >= len(ledger.own_picks):
+            return False
+        slot = ledger.opponent_rounds_seen + 1
+        result = None
+        highest_candidate = None
+        highest_confidence = 0.0
+
+        allow_inspect = (
+            allow_click
+            and self.conf.duel_config.bp_opponent_inspect_enabled
+            and self.bp_assistant.mode
+            in (DuelBPMode.RECOMMEND, DuelBPMode.AUTO)
+            and ledger.pending_own_pick is None
+        )
+        if allow_inspect:
+            try:
+                x, y = OPPONENT_SLOT_CENTERS[slot - 1]
+                self.device.click(
+                    x=x,
+                    y=y,
+                    control_name=f'Duel_BP_Inspect_Opponent_{slot}',
+                )
+                sleep(0.25)
+                self.screenshot()
+                result = self._recognize_bp_name_stable(
+                    SELECTED_NAME_ROI,
+                    min_confidence=(
+                        self.conf.duel_config.bp_auto_confidence
+                    ),
+                )
+                if result is not None:
+                    result = {**result, 'source': 'inspect'}
+            except Exception as exc:
+                logger.warning(
+                    f'Duel BP opponent inspect failed for slot {slot}: {exc!r}'
+                )
+
+        if result is None:
+            try:
+                (
+                    result,
+                    highest_candidate,
+                    highest_confidence,
+                ) = self._recognize_opponent_portrait_stable(slot)
+            except Exception as exc:
+                logger.warning(
+                    f'Duel BP portrait recognition failed for slot {slot}: '
+                    f'{exc!r}'
+                )
+
+        shikigami_id = (
+            str(result['shikigami_id']) if result is not None else None
+        )
+        ledger.record_opponent_pick(slot, shikigami_id)
+        metadata = {
+            'slot': slot,
+            'shikigami_id': shikigami_id,
+            'confidence': (
+                float(result['confidence']) if result is not None else 0.0
+            ),
+            'source': (
+                str(result.get('source') or 'portrait')
+                if result is not None
+                else 'unknown'
+            ),
+            'status': (
+                'recognized' if result is not None else 'unresolved'
+            ),
+        }
+        self._bp_opponent_slot_meta[slot - 1] = metadata
+        self._sync_bp_ledger()
+
+        if result is None:
+            logger.info(
+                f'BP[round={ledger.round_number}][opponent] '
+                f'slot={slot} id=unknown '
+                f'highest={highest_candidate or "unknown"} '
+                f'confidence={highest_confidence:.3f} source=unknown'
+            )
+            self._save_unresolved_opponent_portrait(
+                slot,
+                highest_candidate=highest_candidate,
+                confidence=highest_confidence,
+            )
+        else:
+            logger.info(
+                f'BP[round={ledger.round_number}][opponent] '
+                f'slot={slot} id={shikigami_id} '
+                f'name={result["name"]} '
+                f'confidence={float(result["confidence"]):.3f} '
+                f'source={metadata["source"]}'
+            )
+        return True
+
+    def _scan_ranked_bp_candidate(
+        self,
+        recommendations: tuple[DuelRecommendation, ...],
+    ) -> tuple[VisibleCandidate, int] | None:
+        """Find the highest-ranked usable card with bounded horizontal scans."""
+
+        pool_ids = self._bp_shishen_pool_ids()
+        unavailable = self._bp_ledger.unavailable_ids
+        ranked_ids = tuple(
+            str(item.shikigami_id)
+            for item in recommendations
+            if (
+                (not pool_ids or str(item.shikigami_id) in pool_ids)
+                and str(item.shikigami_id) not in unavailable
+            )
+        )
+        if not ranked_ids:
+            return None
+        max_pages = self.conf.duel_config.bp_candidate_swipe_limit + 1
+        scan_budget = float(
+            getattr(
+                self.conf.duel_config,
+                'bp_candidate_scan_budget',
+                5.0,
+            )
+        )
+        deadline = monotonic() + max(1.0, min(scan_budget, 8.0))
+        seen_pages = set()
+        for page_index in range(max_pages):
+            candidates = self._recognize_visible_bp_candidates()
+            fingerprint = candidate_page_fingerprint(
+                candidates,
+                self.device.image,
+            )
+            if fingerprint in seen_pages:
+                break
+            seen_pages.add(fingerprint)
+            selected = choose_visible_candidate(
+                ranked_ids,
+                candidates,
+                unavailable_ids=unavailable,
+                allowed_ids=pool_ids if pool_ids else None,
+            )
+            if selected is not None:
+                rank = ranked_ids.index(str(selected.shikigami_id))
+                # Preserve enough of the turn for selected-name verification
+                # and the irreversible confirm. Waiting across every page for
+                # rank 1 can exceed the 16-second in-game timer even when a
+                # valid rank 2--5 card is already visible.
+                return selected, rank + 1
+            if (
+                page_index + 1 >= max_pages
+                or monotonic() >= deadline
+            ):
+                break
+            # A bounded scan still mutates the UI. Refresh and authorize every
+            # individual swipe so a turn ending mid-scan cannot drag a later
+            # Onmyoji/battle page at the same fixed coordinates.
+            self.screenshot()
+            if not self._bp_actionable_self_pick():
+                raise _BPActionWindowLost(
+                    'active BP confirm control disappeared during scan'
+                )
+            self.device.swipe(
+                (930, 610),
+                (330, 610),
+                duration=0.35,
+                control_name='Duel_BP_Candidate_Next',
+            )
+            sleep(0.4)
+            self.screenshot()
+        return None
+
+    def _verify_bp_confirm_transition(self) -> bool:
+        stable_key = None
+        stable_frames = 0
+        for _ in range(6):
+            sleep(0.30)
+            self.screenshot()
+            observation = self.recognize_bp_observation()
+            fifth_pick_reached_onmyoji = bool(
+                len(self._bp_ledger.own_picks) == 4
+                and self._bp_ledger.pending_own_pick is not None
+                and self._bp_seen_onmyoji_selection
+                and self.appear(self.I_D_BP_ONMYOJI_SELECT)
+                and observation.state == DuelBPState.SELF_PICK
+            )
+            transition_key = (
+                'ONMYOJI_SELECTION'
+                if fifth_pick_reached_onmyoji
+                else observation.state
+            )
+            if observation.confidence < (
+                self.conf.duel_config.bp_auto_confidence
+            ) or (
+                not fifth_pick_reached_onmyoji
+                and observation.state
+                not in (
+                    DuelBPState.OPPONENT_PICK,
+                    DuelBPState.READY,
+                    DuelBPState.BATTLE,
+                )
+            ):
+                stable_key = None
+                stable_frames = 0
+                continue
+            if transition_key == stable_key:
+                stable_frames += 1
+            else:
+                stable_key = transition_key
+                stable_frames = 1
+            if stable_frames >= 3:
+                return True
+        return False
+
+    def execute_bp_recommendations(
+        self,
+        recommendations: tuple[DuelRecommendation, ...],
+    ) -> bool:
+        """Scan, click, verify and commit one of the ranked Top-5 choices."""
+
+        if self._bp_selection_in_progress:
+            return True
+        self._bp_selection_in_progress = True
+        try:
+            remaining = self._filter_bp_recommendations_by_pool(
+                recommendations
+            )[:5]
+            issued_click = False
+            ranked_candidate_seen = False
+            while remaining:
+                if not self._bp_actionable_self_pick():
+                    self._publish_bp_action(
+                        'scan_candidate',
+                        status='action_window_lost',
+                        message='Active BP confirm control is not available',
+                    )
+                    return True
+                try:
+                    found = self._scan_ranked_bp_candidate(remaining)
+                except _BPActionWindowLost:
+                    self._publish_bp_action(
+                        'scan_candidate',
+                        status='action_window_lost',
+                        message=(
+                            'Active BP confirm control disappeared '
+                            'during candidate scan'
+                        ),
+                    )
+                    return True
+                if found is None:
+                    self._publish_bp_action(
+                        'scan_candidate',
+                        status='not_found',
+                        message='No ranked candidate was found in bounded scan',
+                    )
+                    return issued_click or ranked_candidate_seen
+                candidate, rank = found
+                ranked_candidate_seen = True
+                target_id = str(candidate.shikigami_id)
+                # Candidate scans may take several screenshots or swipes.
+                # Re-check the dedicated active-confirm control immediately
+                # before the first card click; phase classification alone is
+                # not authorization for an irreversible UI action.
+                if not self._bp_actionable_self_pick():
+                    self._publish_bp_action(
+                        'click_candidate',
+                        status='action_window_lost',
+                        shikigami_id=target_id,
+                        confidence=candidate.confidence,
+                        candidate_rank=rank,
+                        selected_verified=False,
+                        confirmed=False,
+                    )
+                    return True
+                card_name = self._recognize_bp_name_roi(
+                    candidate_name_roi(
+                        candidate.slot,
+                        base_x=candidate.base_x,
+                    ),
+                    min_consensus=1,
+                )
+                card_is_disabled = '禁' in card_name['text']
+                card_identity = card_name['shikigami_id']
+                if (
+                    str(card_identity) != target_id
+                    or (
+                        card_name.get('method') != 'exact'
+                        and float(card_name['confidence'])
+                        < self.conf.duel_config.bp_auto_confidence
+                    )
+                    or card_is_disabled
+                ):
+                    self._bp_ledger.mark_unavailable(target_id)
+                    logger.info(
+                        f'BP[round={self._bp_ledger.round_number}]'
+                        f'[action] skipped={target_id} '
+                        f'reason={"disabled" if card_is_disabled else "name_unverified"}'
+                    )
+                    self._publish_bp_action(
+                        'scan_candidate',
+                        status=(
+                            'disabled'
+                            if card_is_disabled
+                            else 'name_unverified'
+                        ),
+                        shikigami_id=target_id,
+                        confidence=card_name['confidence'],
+                        candidate_rank=rank,
+                    )
+                    remaining = tuple(
+                        item
+                        for item in remaining
+                        if str(item.shikigami_id) != target_id
+                    )
+                    continue
+                try:
+                    self._bp_ledger.begin_own_pick(target_id)
+                    self._bp_pending_source = 'auto'
+                except (RuntimeError, ValueError) as exc:
+                    logger.warning(
+                        f'Duel BP candidate {target_id} is unavailable: {exc}'
+                    )
+                    remaining = tuple(
+                        item
+                        for item in remaining
+                        if str(item.shikigami_id) != target_id
+                    )
+                    continue
+
+                # OCR and disabled-card checks above take time. Refresh the
+                # frame and authorize once more at the exact action boundary
+                # so an expiring turn cannot receive even the card click.
+                self.screenshot()
+                if not self._bp_actionable_self_pick():
+                    self._bp_ledger.rollback_pending_own_pick()
+                    self._bp_pending_source = None
+                    self._publish_bp_action(
+                        'click_candidate',
+                        status='action_window_lost',
+                        shikigami_id=target_id,
+                        confidence=candidate.confidence,
+                        candidate_rank=rank,
+                        selected_verified=False,
+                        confirmed=False,
+                    )
+                    return True
+
+                x, y = candidate.click_point
+                self.device.click(
+                    x=x,
+                    y=y,
+                    control_name=f'Duel_BP_Auto_Pick_{target_id}',
+                )
+                issued_click = True
+                logger.info(
+                    f'BP[round={self._bp_ledger.round_number}][auto] '
+                    f'pending={target_id} selected_verified=false '
+                    'confirmed=false source=auto'
+                )
+                self._publish_bp_action(
+                    'click_candidate',
+                    status='pending',
+                    shikigami_id=target_id,
+                    confidence=candidate.confidence,
+                    candidate_rank=rank,
+                    selected_verified=False,
+                    confirmed=False,
+                )
+                sleep(0.25)
+                self.screenshot()
+                verified = self._recognize_bp_name_stable(
+                    SELECTED_NAME_ROI,
+                    expected_id=target_id,
+                    require_actionable=True,
+                    min_confidence=(
+                        self.conf.duel_config.bp_auto_confidence
+                    ),
+                )
+                if verified is None:
+                    action_window_open = self._bp_actionable_self_pick()
+                    self._bp_ledger.rollback_pending_own_pick(
+                        mark_unavailable=action_window_open
+                    )
+                    self._bp_pending_source = None
+                    logger.info(
+                        f'BP[round={self._bp_ledger.round_number}]'
+                        f'[action] clicked={target_id} '
+                        'selected_verified=false confirmed=false'
+                    )
+                    self._publish_bp_action(
+                        'click_candidate',
+                        status='verification_failed',
+                        shikigami_id=target_id,
+                        confidence=candidate.confidence,
+                        candidate_rank=rank,
+                        selected_verified=False,
+                        confirmed=False,
+                    )
+                    if not action_window_open:
+                        # The timer or phase changed while OCR was running.
+                        # Do not click a second card or the fixed confirm point.
+                        return True
+                    remaining = tuple(
+                        item
+                        for item in remaining
+                        if str(item.shikigami_id) != target_id
+                    )
+                    continue
+
+                self.screenshot()
+                if not self._bp_actionable_self_pick():
+                    self._bp_ledger.rollback_pending_own_pick()
+                    self._bp_pending_source = None
+                    logger.info(
+                        f'BP[round={self._bp_ledger.round_number}]'
+                        f'[action] clicked={target_id} '
+                        'selected_verified=true confirmed=false '
+                        'reason=action_window_lost'
+                    )
+                    self._publish_bp_action(
+                        'confirm_candidate',
+                        status='action_window_lost',
+                        shikigami_id=target_id,
+                        confidence=verified['confidence'],
+                        candidate_rank=rank,
+                        selected_verified=True,
+                        confirmed=False,
+                    )
+                    return True
+
+                self.click(self.C_D_BP_CONFIRM, interval=0.2)
+                confirmed = self._verify_bp_confirm_transition()
+                if not confirmed:
+                    # Confirmation is irreversible. Retain the pending ledger
+                    # entry for diagnostics, but never issue a second pick.
+                    logger.info(
+                        f'BP[round={self._bp_ledger.round_number}]'
+                        f'[action] clicked={target_id} '
+                        'selected_verified=true confirmed=false'
+                    )
+                    self._publish_bp_action(
+                        'confirm_candidate',
+                        status='transition_unverified',
+                        shikigami_id=target_id,
+                        confidence=verified['confidence'],
+                        candidate_rank=rank,
+                        selected_verified=True,
+                        confirmed=False,
+                    )
+                    return True
+
+                committed = self._bp_ledger.commit_pending_own_pick(
+                    expected_id=target_id
+                )
+                self._bp_pending_source = None
+                self._sync_bp_ledger()
+                logger.info(
+                    f'BP[round={len(self._bp_ledger.own_picks)}]'
+                    f'[action] clicked={committed} '
+                    'selected_verified=true confirmed=true'
+                )
+                self._publish_bp_action(
+                    'confirm_candidate',
+                    status='success',
+                    shikigami_id=committed,
+                    confidence=verified['confidence'],
+                    round_number=len(self._bp_ledger.own_picks),
+                    candidate_rank=rank,
+                    selected_verified=True,
+                    confirmed=True,
+                )
+                return True
+            return issued_click or ranked_candidate_seen
+        finally:
+            self._bp_selection_in_progress = False
+
     def execute_bp_recommendation(
         self, recommendation: DuelRecommendation
     ) -> bool:
-        """Click an explicitly configured target and verify the next frames.
+        """Backward-compatible single-choice wrapper."""
 
-        Coordinates are deliberately user supplied. A database ID is not a
-        stable screen coordinate, so guessing here would make AUTO unsafe.
+        return self.execute_bp_recommendations((recommendation,))
+
+    def execute_bp_onmyoji_selection(self) -> bool:
+        """Select the configured fixed Onmyoji exactly once in AUTO mode.
+
+        The six roster slots are stable configuration targets.  Runtime safety
+        therefore comes from checking the round-six action window immediately
+        before and after the slot click, followed by the normal confirmation
+        transition check.  Large selected-character identity templates are not
+        part of this path.
         """
+
+        if self._bp_onmyoji_action_issued:
+            return True
+        if self._bp_onmyoji_attempts >= 3:
+            return True
+        onmyoji = self.conf.duel_config.switch_onmyoji
+        display_name = str(getattr(onmyoji, 'value', onmyoji))
         try:
-            targets = json.loads(self.conf.duel_config.bp_pick_targets or '{}')
-            target = targets.get(str(recommendation.shikigami_id))
-            if isinstance(target, dict):
-                x, y = target.get('x'), target.get('y')
-            elif isinstance(target, (list, tuple)) and len(target) == 2:
-                x, y = target
-            else:
-                return False
-            x, y = int(x), int(y)
-            height, width = self.device.image.shape[:2]
-            if not (0 <= x < width and 0 <= y < height):
-                logger.warning('Duel BP pick target is outside the screenshot')
-                return False
-        except (AttributeError, TypeError, ValueError, json.JSONDecodeError) as exc:
-            logger.warning(f'Invalid Duel BP pick target configuration: {exc!r}')
-            return False
-
-        active_slot_index = 4 - self._bp_confirmed_self_rounds
-        visible_slots = self._bp_last_identity.own_visible_slots
-        if (
-            not 0 <= active_slot_index < 5
-            or len(visible_slots) != 5
-            or any(value is None for value in visible_slots)
-            or self._bp_last_identity.confidence is None
-            or self._bp_last_identity.confidence
-            < self.conf.duel_config.bp_auto_confidence
-        ):
-            logger.warning(
-                'Duel BP AUTO requires all five spatial slots before clicking'
-            )
-            return False
-
-        self.device.click(x=x, y=y, control_name='Duel_BP_Auto_Pick')
-        verification_key = None
-        stable_verification_frames = 0
-        for _ in range(3):
-            sleep(0.35)
-            self.screenshot()
-            observation = self.recognize_bp_observation()
-            if observation.confidence < self.conf.duel_config.bp_auto_confidence:
-                verification_key = None
-                stable_verification_frames = 0
-                continue
-            visible_slots = self._bp_last_identity.own_visible_slots
-            if (
-                len(visible_slots) != 5
-                or visible_slots[active_slot_index]
-                != recommendation.shikigami_id
-            ):
-                verification_key = None
-                stable_verification_frames = 0
-                continue
-            current_key = ('candidate', active_slot_index, visible_slots)
-            if current_key == verification_key:
-                stable_verification_frames += 1
-            else:
-                verification_key = current_key
-                stable_verification_frames = 1
-            if stable_verification_frames >= 3:
-                self.click(self.C_D_BP_CONFIRM, interval=0.2)
-                break
-        else:
-            logger.warning(
-                'Duel BP target click was not verified; suppressing further '
-                'selection clicks for this frame'
+            x, y = onmyoji_click_point(onmyoji)
+        except ValueError as exc:
+            self._bp_onmyoji_action_issued = True
+            logger.warning(f'Duel BP Onmyoji selection is invalid: {exc}')
+            self._publish_bp_action(
+                'select_onmyoji',
+                status='invalid_configuration',
+                message=str(exc),
+                round_number=6,
             )
             return True
 
-        # Confirm is irreversible. Verify the non-action phase for diagnostics,
-        # but always suppress any legacy fallback after issuing it.
-        stable_confirmation_frames = 0
-        confirmation_key = None
-        for _ in range(3):
-            sleep(0.35)
-            self.screenshot()
-            observation = self.recognize_bp_observation()
-            if observation.state not in (
-                DuelBPState.OPPONENT_PICK,
-                DuelBPState.READY,
-                DuelBPState.BATTLE,
-            ):
-                stable_confirmation_frames = 0
-                confirmation_key = None
-                continue
-            current_key = (observation.state, observation.own_picks)
-            if current_key == confirmation_key:
-                stable_confirmation_frames += 1
-            else:
-                confirmation_key = current_key
-                stable_confirmation_frames = 1
-        if stable_confirmation_frames < 3:
-            logger.warning('Duel BP confirm transition was not stably verified')
+        # Authorize the roster click on one fresh frame and require the
+        # completed five-pick ledger, the round-six roster, and the dedicated
+        # active confirm control.
+        self.screenshot()
+        if not (
+            self._bp_ledger.completed
+            and self._bp_seen_onmyoji_selection
+            and self.appear(self.I_D_BP_ONMYOJI_SELECT)
+            and self._bp_actionable_self_pick()
+        ):
+            self._publish_bp_action(
+                'select_onmyoji',
+                status='action_window_lost',
+                message='Round-six Onmyoji action window is not available',
+                round_number=6,
+                selection_method='fixed_slot',
+                selected_verified=False,
+                confirmed=False,
+            )
+            return True
+
+        self._bp_onmyoji_attempts += 1
+        self.device.click(
+            x=x,
+            y=y,
+            control_name=f'Duel_BP_Onmyoji_{display_name}',
+        )
+        # A fixed-slot click does not need a second identity recognition pass.
+        # It does need a fresh screen check before the irreversible confirm so
+        # a delayed or reordered UI cannot turn a stale button into permission
+        # to click elsewhere.
+        sleep(0.25)
+        self.screenshot()
+        if not (
+            self._bp_ledger.completed
+            and self._bp_seen_onmyoji_selection
+            and self.appear(self.I_D_BP_ONMYOJI_SELECT)
+            and self._bp_actionable_self_pick()
+        ):
+            logger.info(
+                'BP[round=6][action] '
+                f'onmyoji={display_name} selection_method=fixed_slot '
+                'confirmed=false reason=action_window_lost'
+            )
+            self._publish_bp_action(
+                'select_onmyoji',
+                status='action_window_lost',
+                message=display_name,
+                round_number=6,
+                selection_method='fixed_slot',
+                selected_verified=False,
+                confirmed=False,
+            )
+            return True
+
+        self._bp_onmyoji_action_issued = True
+        self.click(self.C_D_BP_CONFIRM, interval=0.2)
+        confirmed = self._verify_bp_confirm_transition()
+        if confirmed:
+            self._bp_selected_onmyoji = display_name
+        logger.info(
+            'BP[round=6][action] '
+            f'onmyoji={display_name} selection_method=fixed_slot '
+            f'confirmed={str(confirmed).lower()}'
+        )
+        self._publish_bp_action(
+            'select_onmyoji',
+            status='success' if confirmed else 'transition_unverified',
+            message=display_name,
+            round_number=6,
+            selection_method='fixed_slot',
+            confirmed=confirmed,
+        )
         return True
+
+    def _reset_bp_manual_name_window(
+        self,
+        *,
+        invalidate_pending: bool = False,
+    ) -> None:
+        self._bp_manual_name_candidate = None
+        self._bp_manual_name_frames = 0
+        if (
+            invalidate_pending
+            and self._bp_pending_source == 'manual'
+            and self._bp_ledger.pending_own_pick is not None
+        ):
+            self._bp_manual_pending_verified = False
+
+    def _track_recommend_manual_selection(
+        self,
+        observation: BPObservation,
+        state_update,
+    ) -> None:
+        """Stage a manually selected shikigami without issuing any click."""
+
+        if self._bp_manual_tracking_blocked:
+            return
+        if observation.state != DuelBPState.SELF_PICK:
+            # Preserve the last complete three-frame proof while the phase
+            # state machine debounces the user's confirmation transition.
+            self._reset_bp_manual_name_window()
+            return
+
+        actionable = False
+        if (
+            state_update.accepted
+            and state_update.is_stable
+            and observation.confidence >= self.bp_assistant.recommend_confidence
+        ):
+            try:
+                actionable = bool(self.appear(self.I_D_BP_CONFIRM_ACTIVE))
+            except Exception:
+                actionable = False
+        if not actionable:
+            self._reset_bp_manual_name_window(invalidate_pending=True)
+            return
+
+        try:
+            result = self._recognize_bp_name_roi(SELECTED_NAME_ROI)
+        except Exception as exc:
+            logger.warning(
+                f'Duel BP manual selection recognition failed: {exc!r}'
+            )
+            self._reset_bp_manual_name_window(invalidate_pending=True)
+            return
+        current = result.get('shikigami_id')
+        if current in (None, '', 0, '0'):
+            self._reset_bp_manual_name_window(invalidate_pending=True)
+            return
+        current = str(current)
+        round_number = self._bp_ledger.round_number
+        if self._bp_manual_baseline_round != round_number:
+            self._bp_manual_baseline_round = round_number
+            self._bp_manual_baseline_id = None
+            self._bp_manual_selection_changed = False
+
+        if current == self._bp_manual_name_candidate:
+            self._bp_manual_name_frames += 1
+        else:
+            self._bp_manual_name_candidate = current
+            self._bp_manual_name_frames = 1
+
+        pending = self._bp_ledger.pending_own_pick
+        if self._bp_pending_source == 'manual' and pending != current:
+            # One different recognized frame is enough to make the previous
+            # pending identity unsafe to commit. A replacement still requires
+            # its own complete three-frame window.
+            self._bp_manual_pending_verified = False
+        if self._bp_manual_name_frames < 3:
+            return
+
+        if self._bp_manual_baseline_id is None:
+            # The BP screen opens with a default/highlighted shikigami. Merely
+            # seeing it is not proof that the user chose it.
+            self._bp_manual_baseline_id = current
+            logger.debug(
+                f'BP[round={round_number}][manual] baseline={current}'
+            )
+            return
+        if current != self._bp_manual_baseline_id:
+            self._bp_manual_selection_changed = True
+        elif not self._bp_manual_selection_changed:
+            return
+
+        if pending is not None and self._bp_pending_source != 'manual':
+            # Never reinterpret an AUTO click as a manual selection after a
+            # runtime mode change.
+            return
+        if pending != current:
+            if pending is not None:
+                self._bp_ledger.rollback_pending_own_pick()
+            try:
+                self._bp_ledger.begin_own_pick(current)
+            except (RuntimeError, ValueError) as exc:
+                logger.warning(
+                    f'Duel BP manual selection {current} was not staged: {exc}'
+                )
+                self._bp_pending_source = None
+                self._bp_manual_pending_verified = False
+                return
+            self._bp_pending_source = 'manual'
+            logger.info(
+                f'BP[round={self._bp_ledger.round_number}][manual] '
+                f'pending={current} selected_verified=true '
+                'confirmed=false source=manual'
+            )
+            self._publish_bp_action(
+                'manual_pick',
+                status='pending',
+                shikigami_id=current,
+                confidence=float(result.get('confidence') or 0.0),
+                selected_verified=True,
+                confirmed=False,
+                message='manual selection observed for three stable frames',
+            )
+        self._bp_manual_pending_verified = True
 
     def handle_bp_assistant(self) -> bool:
         """Process one BP frame and return whether to suppress auto-entry."""
         assistant = self.bp_assistant
-        if assistant.mode == DuelBPMode.OFF:
+        if (
+            assistant.mode == DuelBPMode.OFF
+            and self._bp_sample_collector is None
+        ):
             return False
 
         observation = self.recognize_bp_observation()
-        # Do not commit identity context before the state machine accepts the
-        # complete fingerprint for three frames. A single longer false
-        # detection must not become the baseline for subsequent frames.
+        if self._bp_sample_collector is not None:
+            try:
+                result = self._bp_sample_collector.capture(
+                    self.device.image.copy(),
+                    phase=observation.state.value,
+                    confidence=observation.confidence,
+                    onmyoji_selection=self._bp_seen_onmyoji_selection,
+                    metadata={
+                        'own_picks': list(observation.own_picks),
+                        'opponent_picks': list(observation.opponent_picks),
+                        'bans': list(observation.bans),
+                        'own_visible_slots': list(
+                            self._bp_last_identity.own_visible_slots
+                        ),
+                        'opponent_visible_slots': list(
+                            self._bp_last_identity.opponent_visible_slots
+                        ),
+                    },
+                )
+                if result.captured:
+                    logger.info(
+                        'Duel BP sample captured: '
+                        f'{result.frame_sha256[:12]} '
+                        f'({result.crop_count} crops)'
+                    )
+            except Exception as exc:
+                # Collection is diagnostic and must never stop or influence
+                # the live selection loop.
+                self._bp_sample_collector = None
+                logger.warning(
+                    f'Duel BP sample capture disabled after error: {exc!r}'
+                )
+        if assistant.mode == DuelBPMode.OFF:
+            return False
+
         self._bp_last_observation = observation
-        if self._bp_seen_onmyoji_selection:
+        ledger = self._bp_ledger
+        can_recommend = (
+            not self._bp_seen_onmyoji_selection
+            and not self._bp_manual_tracking_blocked
+            and ledger.ready_for_recommendation
+        )
+        if not can_recommend:
             rule_candidates = personal_candidates = external_candidates = ()
         else:
             rule_candidates = self.bp_rule_candidates(observation)
@@ -696,19 +2256,226 @@ class ScriptTask(DuelLivePublisherMixin, GameUi, GeneralBattle, SwitchSoul, Duel
             rule_candidates=rule_candidates,
             personal_candidates=personal_candidates,
             external_candidates=external_candidates,
+            action_confidence=observation.confidence,
+            unavailable_ids=ledger.unavailable_ids,
         )
         self.bp_last_decision = decision
-        if decision.state_update.accepted:
-            self._bp_own_picks = observation.own_picks
-            self._bp_opponent_picks = observation.opponent_picks
-            self._bp_bans = observation.bans
+        reveal_context_updated = self._observe_bp_reveal_pair_frame()
+
+        if assistant.mode == DuelBPMode.RECOMMEND:
+            self._track_recommend_manual_selection(
+                observation,
+                decision.state_update,
+            )
+        else:
+            self._reset_bp_manual_name_window(
+                invalidate_pending=False,
+            )
+
+        fifth_pick_reached_onmyoji = bool(
+            len(ledger.own_picks) == 4
+            and ledger.pending_own_pick is not None
+            and self._bp_seen_onmyoji_selection
+            and observation.state == DuelBPState.SELF_PICK
+            and self.appear(self.I_D_BP_ONMYOJI_SELECT)
+        )
+        pending_source = getattr(self, '_bp_pending_source', None)
+        source_matches_mode = (
+            pending_source == 'manual'
+            and assistant.mode == DuelBPMode.RECOMMEND
+        ) or (
+            pending_source == 'auto'
+            and assistant.mode == DuelBPMode.AUTO
+        )
+        phase_signals = getattr(self, '_bp_last_phase_signals', None)
+        own_confirm_locked = bool(
+            phase_signals is not None
+            and phase_signals.confirm_locked > 0
+        )
+        stable_confirmed_phase = (
+            observation.state == DuelBPState.OPPONENT_PICK
+            and own_confirm_locked
+        )
+        if (
+            decision.state_update.accepted
+            and ledger.pending_own_pick is not None
+            and source_matches_mode
+            and (stable_confirmed_phase or fifth_pick_reached_onmyoji)
+        ):
+            if (
+                pending_source == 'manual'
+                and not self._bp_manual_pending_verified
+            ):
+                discarded = ledger.rollback_pending_own_pick()
+                self._bp_pending_source = None
+                self._sync_bp_ledger()
+                logger.info(
+                    f'BP[round={ledger.round_number}][manual] '
+                    f'pending={discarded} confirmed=false '
+                    'source=manual_transition reason=unstable_name'
+                )
+                self._publish_bp_action(
+                    'manual_pick',
+                    status='transition_unverified',
+                    shikigami_id=discarded,
+                    confidence=observation.confidence,
+                    selected_verified=False,
+                    confirmed=False,
+                    message='manual name was not stable through confirmation',
+                )
+            else:
+                committed = ledger.commit_pending_own_pick()
+                self._bp_pending_source = None
+                self._bp_manual_pending_verified = False
+                self._sync_bp_ledger()
+                if pending_source == 'manual':
+                    logger.info(
+                        f'BP[round={len(ledger.own_picks)}][manual] '
+                        f'selected={committed} selected_verified=true '
+                        'confirmed=true source=manual_transition'
+                    )
+                    action = 'manual_pick'
+                    message = 'manual selection confirmed by stable transition'
+                else:
+                    logger.info(
+                        f'BP[round={len(ledger.own_picks)}][auto] '
+                        f'clicked={committed} selected_verified=true '
+                        'confirmed=true source=auto_delayed_transition'
+                    )
+                    action = 'confirm_candidate'
+                    message = 'auto selection confirmed by later stable transition'
+                self._publish_bp_action(
+                    action,
+                    status='success',
+                    shikigami_id=committed,
+                    confidence=observation.confidence,
+                    round_number=len(ledger.own_picks),
+                    selected_verified=True,
+                    confirmed=True,
+                    message=message,
+                )
+                observation = BPObservation(
+                    state=observation.state,
+                    confidence=observation.confidence,
+                    own_picks=ledger.own_picks,
+                    opponent_picks=ledger.opponent_context,
+                    bans=(),
+                )
+                self._bp_last_observation = observation
+        elif (
+            assistant.mode == DuelBPMode.RECOMMEND
+            and decision.state_update.accepted
+            and stable_confirmed_phase
+            and ledger.pending_own_pick is None
+            and self._bp_manual_baseline_round == ledger.round_number
+            and self._bp_manual_baseline_id is not None
+        ):
+            # A confirmation occurred without a proven change from the
+            # initial highlight. We cannot know the chosen identity and must
+            # stop advancing the sequential ledger instead of assigning the
+            # default card to the next round.
+            self._bp_manual_tracking_blocked = True
+            logger.info(
+                f'BP[round={ledger.round_number}][manual] '
+                'id=unknown selected_verified=false confirmed=true '
+                'reason=no_selection_change_proof'
+            )
+            self._publish_bp_action(
+                'manual_pick',
+                status='identity_unknown',
+                round_number=ledger.round_number,
+                selected_verified=False,
+                confirmed=True,
+                message=(
+                    'confirmation observed without a proven change from '
+                    'the initial highlight'
+                ),
+            )
+
+        # The pair may have reached three same-frame votes just before the
+        # debounced transition above committed our pending own pick. Finalize
+        # it now without another screenshot or OCR pass.
+        if self._finalize_bp_reveal_pair_if_ready():
+            reveal_context_updated = True
+        if reveal_context_updated:
+            observation = BPObservation(
+                state=observation.state,
+                confidence=observation.confidence,
+                own_picks=ledger.own_picks,
+                opponent_picks=ledger.opponent_context,
+                bans=(),
+            )
+            self._bp_last_observation = observation
+
+        # When our next turn is stably visible, resolve exactly the opponent
+        # slot revealed since our previous confirmed pick. Unknown remains a
+        # real positional slot and must not block the next recommendation.
+        opponent_context_updated = False
+        if (
+            decision.state_update.accepted
+            and observation.state == DuelBPState.SELF_PICK
+            and ledger.opponent_rounds_seen < len(ledger.own_picks)
+        ):
+            opponent_context_updated = self._observe_next_bp_opponent(
+                allow_click=(
+                    assistant.mode == DuelBPMode.AUTO
+                    and not self._bp_seen_onmyoji_selection
+                )
+            )
+            if opponent_context_updated:
+                observation = BPObservation(
+                    state=observation.state,
+                    confidence=observation.confidence,
+                    own_picks=ledger.own_picks,
+                    opponent_picks=ledger.opponent_context,
+                    bans=(),
+                )
+                self._bp_last_observation = observation
+
         state_key = (
             decision.state_update.state,
-            observation.own_picks,
-            observation.opponent_picks,
-            observation.bans,
+            ledger.own_picks,
+            ledger.opponent_context,
+            ledger.pending_own_pick,
+            tuple(
+                (
+                    item['slot'],
+                    item['shikigami_id'],
+                    item['status'],
+                    item['confidence'],
+                    item['source'],
+                )
+                for item in self._bp_opponent_slot_meta
+            ),
+            self._bp_selected_onmyoji,
         )
         if decision.state_update.accepted and state_key != self._bp_last_published_state:
+            if observation.state not in (
+                DuelBPState.BATTLE,
+                DuelBPState.RESULT,
+            ):
+                self.reset_device('DUEL_BP_PROGRESS')
+            own_wire = [
+                value
+                for value in (
+                    self._duel_shikigami_id(item)
+                    for item in ledger.own_picks
+                )
+                if value is not None
+            ]
+            opponent_wire = [
+                value
+                for value in (
+                    self._duel_shikigami_id(item)
+                    for item in ledger.opponent_context
+                )
+                if value is not None
+            ]
+            state_round = (
+                6
+                if self._bp_seen_onmyoji_selection
+                else ledger.round_number
+            )
             self.publish_bp_live_event(
                 'state',
                 {
@@ -718,43 +2485,98 @@ class ScriptTask(DuelLivePublisherMixin, GameUi, GeneralBattle, SwitchSoul, Duel
                     'mode': assistant.mode.value,
                     'confidence': observation.confidence,
                     'stable_frames': decision.state_update.stable_frames,
-                    'own_picks': list(observation.own_picks),
-                    'opponent_picks': list(observation.opponent_picks),
-                    'bans': list(observation.bans),
-                    'self_ban': list(observation.bans[:1]),
-                    'opponent_ban': list(observation.bans[1:2]),
+                    'round': state_round,
+                    'own_picks': own_wire,
+                    'opponent_picks': opponent_wire,
+                    'opponent_slots': self._bp_opponent_slots_payload(),
+                    'pending_own_pick': self._duel_shikigami_id(
+                        ledger.pending_own_pick
+                    ),
+                    'selected_onmyoji': self._bp_selected_onmyoji,
+                    'bans': [],
+                    'self_ban': [],
+                    'opponent_ban': [],
                     'picks': self._bp_pick_payload(observation),
                     'recommendations': [],
                     'explanation': '',
                 },
             )
             self._bp_last_published_state = state_key
-        if decision.recommendation is not None:
-            recommendation = decision.recommendation
+
+        if (
+            decision.recommendations
+            and not opponent_context_updated
+            and not reveal_context_updated
+        ):
+            recommendation = decision.recommendations[0]
             effective_confidence = min(
                 recommendation.confidence,
                 observation.confidence,
             )
             recommendation_key = (
-                recommendation.shikigami_id,
-                recommendation.source,
-                recommendation.score,
-                effective_confidence,
+                ledger.round_number,
+                tuple(
+                    (
+                        item.shikigami_id,
+                        item.source,
+                        item.score,
+                        item.confidence,
+                        item.context_level,
+                        item.rank,
+                    )
+                    for item in decision.recommendations
+                ),
             )
             if recommendation_key != self._bp_last_published_recommendation:
-                wire_shishen_id = self._duel_shikigami_id(
-                    recommendation.shikigami_id
-                )
-                if wire_shishen_id is None:
+                wire_items = []
+                for item in decision.recommendations:
+                    wire_id = self._duel_shikigami_id(
+                        item.shikigami_id
+                    )
+                    if wire_id is None:
+                        continue
+                    item_confidence = min(
+                        item.confidence, observation.confidence
+                    )
+                    wire_items.append(
+                        {
+                            'rank': item.rank,
+                            'shikigami_id': wire_id,
+                            'shishen_id': wire_id,
+                            'score': item.score,
+                            'confidence': item_confidence,
+                            'sample_size': item.sample_size,
+                            'context_level': item.context_level.value,
+                            'context_sample_size': (
+                                item.context_sample_size
+                            ),
+                            'reason': item.reason,
+                            'source': item.source.value,
+                            'evidence_sources': [
+                                source.value
+                                for source in item.evidence_sources
+                            ],
+                        }
+                    )
+                if not wire_items:
                     logger.warning(
-                        'Duel BP recommendation has a non-numeric shikigami ID'
+                        'Duel BP recommendations contain no numeric '
+                        'shikigami IDs'
                     )
                     return True
+                wire_shishen_id = wire_items[0]['shishen_id']
                 logger.info(
-                    'Duel BP recommendation: '
-                    f'{recommendation.shikigami_id} '
-                    f'[{recommendation.source.value}, '
-                    f'confidence={effective_confidence:.3f}]'
+                    f'BP[round={ledger.round_number}][recommend] '
+                    f'id={recommendation.shikigami_id} '
+                    f'name={self._bp_name(recommendation.shikigami_id)} '
+                    f'source={recommendation.source.value} '
+                    f'context={recommendation.context_level.value} '
+                    f'score={recommendation.score:.4f} '
+                    'top5='
+                    + ','.join(
+                        f'{item.shikigami_id}:{item.score:.4f}'
+                        for item in decision.recommendations
+                    )
                 )
                 self.publish_bp_live_event(
                     'recommendation',
@@ -762,6 +2584,10 @@ class ScriptTask(DuelLivePublisherMixin, GameUi, GeneralBattle, SwitchSoul, Duel
                         'state': decision.state_update.state.value,
                         'phase': decision.state_update.state.value,
                         'mode': assistant.mode.value,
+                        'target_round': ledger.round_number,
+                        'context_level': (
+                            recommendation.context_level.value
+                        ),
                         'shikigami_id': wire_shishen_id,
                         'shishen_id': wire_shishen_id,
                         'source': recommendation.source.value,
@@ -772,21 +2598,7 @@ class ScriptTask(DuelLivePublisherMixin, GameUi, GeneralBattle, SwitchSoul, Duel
                         'sample_size': recommendation.sample_size,
                         'reason': recommendation.reason,
                         'explanation': recommendation.reason,
-                        'recommendations': [
-                            {
-                                'shikigami_id': wire_shishen_id,
-                                'shishen_id': wire_shishen_id,
-                                'score': recommendation.score,
-                                'confidence': effective_confidence,
-                                'sample_size': recommendation.sample_size,
-                                'reason': recommendation.reason,
-                                'source': recommendation.source.value,
-                                'evidence_sources': [
-                                    source.value
-                                    for source in recommendation.evidence_sources
-                                ],
-                            }
-                        ],
+                        'recommendations': wire_items,
                         'evidence_sources': [
                             source.value
                             for source in recommendation.evidence_sources
@@ -799,15 +2611,31 @@ class ScriptTask(DuelLivePublisherMixin, GameUi, GeneralBattle, SwitchSoul, Duel
             return True
         if assistant.mode == DuelBPMode.RECOMMEND:
             return True
+        if ledger.pending_own_pick is not None:
+            # A confirmation click may have succeeded even when its immediate
+            # transition could not be verified. Until a later stable phase
+            # commits it, never fall through to the legacy auto-entry button
+            # and never issue a second irreversible choice.
+            return True
         if self._bp_seen_onmyoji_selection:
-            # Round six uses an independent Onmyoji ID space. Until that
-            # identity path is verified, AUTO remains fail-closed and never
-            # falls through to shikigami/legacy clicks.
+            if (
+                ledger.completed
+                and observation.state == DuelBPState.SELF_PICK
+                and decision.state_update.accepted
+                and decision.state_update.is_stable
+                and observation.confidence
+                >= self.conf.duel_config.bp_auto_confidence
+            ):
+                return self.execute_bp_onmyoji_selection()
             return True
         if observation.state != DuelBPState.SELF_PICK:
             return True
-        if decision.should_auto_pick and decision.recommendation is not None:
-            if self.execute_bp_recommendation(decision.recommendation):
+        if opponent_context_updated or reveal_context_updated:
+            # Recommendation will be recalculated against the new nullable
+            # opponent context on the next frame.
+            return True
+        if decision.should_auto_pick and decision.recommendations:
+            if self.execute_bp_recommendations(decision.recommendations):
                 return True
             logger.warning(
                 'Duel BP recommendation could not be verified; '
@@ -911,11 +2739,31 @@ class ScriptTask(DuelLivePublisherMixin, GameUi, GeneralBattle, SwitchSoul, Duel
                 'valid': result is not None,
                 'aborted_before_battle': self._duel_aborted_before_battle,
                 'abort_reason': self._duel_abort_reason,
-                'own_picks': list(self._bp_own_picks),
-                'opponent_picks': list(self._bp_opponent_picks),
-                'bans': list(self._bp_bans),
-                'self_ban': list(self._bp_bans[:1]),
-                'opponent_ban': list(self._bp_bans[1:2]),
+                'round': 6,
+                'own_picks': [
+                    value
+                    for value in (
+                        self._duel_shikigami_id(item)
+                        for item in self._bp_own_picks
+                    )
+                    if value is not None
+                ],
+                'opponent_picks': [
+                    value
+                    for value in (
+                        self._duel_shikigami_id(item)
+                        for item in self._bp_opponent_picks
+                    )
+                    if value is not None
+                ],
+                'opponent_slots': self._bp_opponent_slots_payload(),
+                'pending_own_pick': self._duel_shikigami_id(
+                    self._bp_ledger.pending_own_pick
+                ),
+                'selected_onmyoji': self._bp_selected_onmyoji,
+                'bans': [],
+                'self_ban': [],
+                'opponent_ban': [],
                 'picks': self._bp_pick_payload(
                     BPObservation(
                         DuelBPState.RESULT,

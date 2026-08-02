@@ -3,12 +3,15 @@ import unittest
 from tasks.Duel.bp import (
     BPObservation,
     DuelBPAssistant,
+    DuelDraftLedger,
     DuelBPMode,
     DuelBPState,
     DuelBPStateMachine,
     DuelRecommendationCandidate,
     DuelRecommendationEngine,
     RecommendationSource,
+    RecommendationTier,
+    build_pick_payload,
 )
 from tasks.Duel.config import DuelConfig
 
@@ -33,6 +36,8 @@ def candidate(
     confidence: float = 1.0,
     priority: int = 0,
     sample_size: int = 0,
+    context_level: RecommendationTier | None = None,
+    context_sample_size: int = 0,
 ) -> DuelRecommendationCandidate:
     return DuelRecommendationCandidate(
         shikigami_id=shikigami_id,
@@ -41,6 +46,8 @@ def candidate(
         confidence=confidence,
         priority=priority,
         sample_size=sample_size,
+        context_level=context_level,
+        context_sample_size=context_sample_size,
     )
 
 
@@ -50,6 +57,19 @@ class DuelBPConfigTest(unittest.TestCase):
         for mode in DuelBPMode:
             with self.subTest(mode=mode):
                 self.assertEqual(DuelConfig(bp_mode=mode.value).bp_mode, mode)
+
+    def test_shishen_pool_defaults_empty_and_normalizes_unique_ids(self) -> None:
+        self.assertEqual([], DuelConfig().bp_shishen_pool)
+        config = DuelConfig(bp_shishen_pool=[596, "399", 596])
+        self.assertEqual([596, 399], config.bp_shishen_pool)
+
+    def test_script_argument_json_type_parses_an_id_list(self) -> None:
+        from module.server.script_router import _coerce_script_argument_value
+
+        self.assertEqual(
+            [596, 399],
+            _coerce_script_argument_value("json", "[596,399]"),
+        )
 
 
 class DuelBPStateMachineTest(unittest.TestCase):
@@ -141,6 +161,72 @@ class DuelBPStateMachineTest(unittest.TestCase):
         self.assertFalse(skipped.accepted)
         self.assertEqual(skipped.reason, "unexpected_state_transition")
         self.assertEqual(machine.state, DuelBPState.BAN)
+
+
+class DuelDraftLedgerTest(unittest.TestCase):
+    def test_pending_pick_is_committed_only_after_verification(self) -> None:
+        ledger = DuelDraftLedger()
+        self.assertEqual(1, ledger.round_number)
+        self.assertTrue(ledger.ready_for_recommendation)
+
+        self.assertTrue(ledger.begin_own_pick(10))
+        self.assertEqual("10", ledger.pending_own_pick)
+        self.assertIn("10", ledger.unavailable_ids)
+        self.assertFalse(ledger.ready_for_recommendation)
+        self.assertEqual("10", ledger.commit_pending_own_pick(expected_id="10"))
+
+        self.assertEqual(("10",), ledger.own_picks)
+        self.assertEqual(2, ledger.round_number)
+        self.assertFalse(ledger.ready_for_recommendation)
+
+        ledger.record_opponent_pick(1, None)
+        self.assertEqual((None,), ledger.opponent_context)
+        self.assertTrue(ledger.ready_for_recommendation)
+
+        ledger.begin_own_pick("20")
+        self.assertEqual("20", ledger.rollback_pending_own_pick(mark_unavailable=True))
+        self.assertIn("20", ledger.unavailable_ids)
+        with self.assertRaises(ValueError):
+            ledger.begin_own_pick("20")
+
+    def test_nullable_opponent_slots_keep_round_positions(self) -> None:
+        ledger = DuelDraftLedger()
+        ledger.record_opponent_pick(1, None)
+        ledger.record_opponent_pick(2, "22")
+        self.assertEqual((None, "22"), ledger.opponent_context)
+
+        self.assertTrue(ledger.record_opponent_pick(1, "11"))
+        self.assertEqual(("11", "22"), ledger.opponent_context)
+        self.assertFalse(ledger.record_opponent_pick(1, None))
+        self.assertEqual(("11", "22"), ledger.opponent_context)
+        with self.assertRaises(ValueError):
+            ledger.record_opponent_pick(2, "different")
+
+        snapshot = ledger.snapshot()
+        self.assertEqual(("11", "22", None, None, None), snapshot.opponent_slots)
+        self.assertEqual(2, snapshot.opponent_rounds_seen)
+
+    def test_five_committed_picks_complete_the_ledger(self) -> None:
+        ledger = DuelDraftLedger()
+        for round_number in range(1, 6):
+            if round_number > 1:
+                ledger.record_opponent_pick(round_number - 1, None)
+            ledger.begin_own_pick(str(round_number))
+            ledger.commit_pending_own_pick()
+        self.assertTrue(ledger.completed)
+        self.assertIsNone(ledger.next_round)
+        self.assertFalse(ledger.ready_for_recommendation)
+        with self.assertRaises(RuntimeError):
+            ledger.begin_own_pick("6")
+
+    def test_pick_payload_skips_unknown_but_keeps_its_round(self) -> None:
+        payload = build_pick_payload(
+            ("10", "11"),
+            (None, "20", "20"),
+        )
+        opponent = [item for item in payload if item["side"] == "opponent"]
+        self.assertEqual([2, 3], [item["round"] for item in opponent])
+        self.assertEqual([1, 2], [item["count"] for item in opponent])
 
 
 class DuelRecommendationEngineTest(unittest.TestCase):
@@ -248,6 +334,110 @@ class DuelRecommendationEngineTest(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertEqual(result.shikigami_id, "mirror")
 
+    def test_ranked_result_uses_all_fallback_tiers_and_is_top_five(self) -> None:
+        ranked = self.engine.recommend_ranked(
+            self.frame,
+            rule_candidates=(
+                candidate("rule", RecommendationSource.RULE, 0.1),
+            ),
+            personal_candidates=(
+                candidate(
+                    "exact",
+                    RecommendationSource.PERSONAL,
+                    0.7,
+                    sample_size=4,
+                    context_level=RecommendationTier.EXACT_HISTORY,
+                    context_sample_size=20,
+                ),
+                candidate(
+                    "opponent",
+                    RecommendationSource.PERSONAL,
+                    0.9,
+                    sample_size=20,
+                    context_level=RecommendationTier.OPPONENT_KNOWN,
+                    context_sample_size=20,
+                ),
+                candidate(
+                    "own",
+                    RecommendationSource.PERSONAL,
+                    0.95,
+                    sample_size=20,
+                    context_level=RecommendationTier.OWN_PREFIX,
+                    context_sample_size=20,
+                ),
+                candidate(
+                    "global",
+                    RecommendationSource.PERSONAL,
+                    1.0,
+                    sample_size=1,
+                    context_level=RecommendationTier.ROUND_GLOBAL,
+                    context_sample_size=1,
+                ),
+            ),
+            external_candidates=(
+                candidate("external", RecommendationSource.EXTERNAL, 1.0),
+            ),
+        )
+        self.assertEqual(
+            ["rule", "exact", "opponent", "own", "global"],
+            [item.shikigami_id for item in ranked],
+        )
+        self.assertEqual([1, 2, 3, 4, 5], [item.rank for item in ranked])
+        self.assertEqual(
+            RecommendationTier.EXACT_HISTORY, ranked[1].context_level
+        )
+
+    def test_ranked_result_accepts_per_match_unavailable_ids(self) -> None:
+        ranked = self.engine.recommend_ranked(
+            self.frame,
+            rule_candidates=(
+                candidate("blocked", RecommendationSource.RULE, 1.0),
+                candidate("available", RecommendationSource.RULE, 0.5),
+            ),
+            unavailable_ids=("blocked",),
+        )
+        self.assertEqual(["available"], [item.shikigami_id for item in ranked])
+
+    def test_one_global_sample_does_not_reorder_equal_priority_rules(
+        self,
+    ) -> None:
+        ranked = self.engine.recommend_ranked(
+            self.frame,
+            rule_candidates=(
+                candidate(
+                    "rule-a",
+                    RecommendationSource.RULE,
+                    0.9,
+                    priority=1,
+                ),
+                candidate(
+                    "rule-b",
+                    RecommendationSource.RULE,
+                    0.8,
+                    priority=1,
+                ),
+            ),
+            personal_candidates=(
+                candidate(
+                    "rule-b",
+                    RecommendationSource.PERSONAL,
+                    1.0,
+                    sample_size=1,
+                    context_level=RecommendationTier.ROUND_GLOBAL,
+                    context_sample_size=1,
+                ),
+            ),
+        )
+
+        self.assertEqual(
+            ["rule-a", "rule-b"],
+            [item.shikigami_id for item in ranked[:2]],
+        )
+        self.assertEqual(
+            (RecommendationSource.RULE,),
+            ranked[1].evidence_sources,
+        )
+
 
 class DuelBPAssistantTest(unittest.TestCase):
     def test_auto_waits_three_frames_then_allows_high_confidence_pick(self) -> None:
@@ -308,6 +498,52 @@ class DuelBPAssistantTest(unittest.TestCase):
         self.assertFalse(repeated.should_auto_pick)
         self.assertEqual(repeated.reason, "auto_pick_already_issued")
 
+    def test_auto_pick_reopens_after_candidate_is_marked_unavailable(
+        self,
+    ) -> None:
+        assistant = DuelBPAssistant(mode=DuelBPMode.AUTO)
+        rules = (
+            candidate("first", RecommendationSource.RULE, 1.0),
+            candidate("second", RecommendationSource.RULE, 0.9),
+        )
+        frame = observation(DuelBPState.SELF_PICK)
+        for _ in range(3):
+            first = assistant.process(frame, rule_candidates=rules)
+        self.assertTrue(first.should_auto_pick)
+        self.assertEqual("first", first.recommendation.shikigami_id)
+
+        retry = assistant.process(
+            frame,
+            rule_candidates=rules,
+            unavailable_ids=("first",),
+        )
+        self.assertTrue(retry.should_auto_pick)
+        self.assertEqual("second", retry.recommendation.shikigami_id)
+
+    def test_auto_restarts_stability_window_when_opponent_context_changes(
+        self,
+    ) -> None:
+        assistant = DuelBPAssistant(mode=DuelBPMode.AUTO)
+        rules = (candidate("pick", RecommendationSource.RULE, 1.0),)
+        before = observation(DuelBPState.SELF_PICK)
+        for _ in range(3):
+            assistant.process(before, rule_candidates=rules)
+
+        after = BPObservation(
+            state=DuelBPState.SELF_PICK,
+            confidence=1.0,
+            opponent_picks=("opponent",),
+        )
+        first = assistant.process(after, rule_candidates=rules)
+        second = assistant.process(after, rule_candidates=rules)
+        third = assistant.process(after, rule_candidates=rules)
+
+        self.assertFalse(first.should_auto_pick)
+        self.assertFalse(first.fallback_to_auto_entry)
+        self.assertEqual("waiting_for_stable_frames", first.reason)
+        self.assertFalse(second.should_auto_pick)
+        self.assertTrue(third.should_auto_pick)
+
     def test_recommend_mode_never_authorizes_click(self) -> None:
         assistant = DuelBPAssistant(mode=DuelBPMode.RECOMMEND)
         rules = (candidate("pick", RecommendationSource.RULE, 1.0),)
@@ -318,6 +554,38 @@ class DuelBPAssistantTest(unittest.TestCase):
         self.assertIsNotNone(decision.recommendation)
         self.assertFalse(decision.should_auto_pick)
         self.assertFalse(decision.fallback_to_auto_entry)
+
+    def test_recommendation_quality_does_not_replace_action_safety(self) -> None:
+        assistant = DuelBPAssistant(mode=DuelBPMode.AUTO)
+        low_quality_rule = (
+            candidate(
+                "pick",
+                RecommendationSource.RULE,
+                0.4,
+                confidence=0.2,
+            ),
+        )
+        for _ in range(3):
+            safe = assistant.process(
+                observation(DuelBPState.SELF_PICK),
+                rule_candidates=low_quality_rule,
+                action_confidence=0.99,
+            )
+        self.assertTrue(safe.should_auto_pick)
+        self.assertEqual(0.2, safe.recommendation.confidence)
+        self.assertEqual(("pick",), tuple(
+            item.shikigami_id for item in safe.recommendations
+        ))
+
+        unsafe_assistant = DuelBPAssistant(mode=DuelBPMode.AUTO)
+        for _ in range(3):
+            unsafe = unsafe_assistant.process(
+                observation(DuelBPState.SELF_PICK),
+                rule_candidates=low_quality_rule,
+                action_confidence=0.97,
+            )
+        self.assertFalse(unsafe.should_auto_pick)
+        self.assertTrue(unsafe.fallback_to_auto_entry)
 
 
 if __name__ == "__main__":

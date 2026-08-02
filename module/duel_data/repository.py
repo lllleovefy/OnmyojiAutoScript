@@ -14,6 +14,10 @@ from module.duel_data.models import (
     DuelMatchList,
     DuelMatchPatch,
     DuelPick,
+    DuelPortraitStatus,
+    DuelPortraitTemplate,
+    DuelPortraitTemplateInput,
+    DuelPortraitTemplateList,
     DuelStrategy,
     DuelSummary,
     DuelTopPick,
@@ -134,6 +138,22 @@ CREATE TABLE IF NOT EXISTS recommendation_snapshots (
     UNIQUE(provider, recommendation_type, payload_hash)
 );
 
+CREATE TABLE IF NOT EXISTS duel_portrait_templates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    path TEXT NOT NULL,
+    shishen_id INTEGER,
+    name TEXT,
+    view TEXT NOT NULL,
+    hash TEXT NOT NULL,
+    source TEXT NOT NULL,
+    confidence REAL NOT NULL DEFAULT 0 CHECK(confidence BETWEEN 0 AND 1),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(view, hash)
+);
+CREATE INDEX IF NOT EXISTS idx_duel_portrait_templates_identity
+ON duel_portrait_templates(shishen_id, view);
+
 """
 
 
@@ -176,6 +196,8 @@ class DuelRepository:
             if previous_version < 2:
                 self._normalize_existing_timestamps(connection)
                 connection.execute("PRAGMA user_version=2")
+            if previous_version < 3:
+                connection.execute("PRAGMA user_version=3")
 
     @staticmethod
     def _normalize_existing_timestamps(connection: sqlite3.Connection) -> None:
@@ -565,3 +587,276 @@ class DuelRepository:
             return json.loads(row["payload_json"])
         except (TypeError, json.JSONDecodeError):
             return None
+
+    @staticmethod
+    def _portrait_from_row(row: sqlite3.Row) -> DuelPortraitTemplate:
+        shishen_id = row["shishen_id"]
+        return DuelPortraitTemplate(
+            id=row["id"],
+            path=row["path"],
+            shishen_id=shishen_id,
+            name=row["name"],
+            view=row["view"],
+            hash=row["hash"],
+            source=row["source"],
+            confidence=row["confidence"],
+            status="recognized" if shishen_id is not None else "unresolved",
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
+        )
+
+    def upsert_portrait_template(
+        self,
+        template: DuelPortraitTemplateInput | dict[str, Any],
+    ) -> tuple[DuelPortraitTemplate, bool]:
+        """Store one crop idempotently by its view and content hash."""
+        item = (
+            template
+            if isinstance(template, DuelPortraitTemplateInput)
+            else DuelPortraitTemplateInput.model_validate(
+                sanitize_for_storage(template)
+            )
+        )
+        path = str(sanitize_for_storage(item.path)).strip()
+        source = str(sanitize_for_storage(item.source)).strip()
+        sanitized_name = sanitize_for_storage(item.name) if item.name else None
+        name = (
+            str(sanitized_name).strip()
+            if sanitized_name and str(sanitized_name).strip()
+            else None
+        )
+        now = _utc_now()
+        with self._write_lock, self._connect() as connection:
+            # Let SQLite arbitrate concurrent writers. A preliminary SELECT
+            # followed by a plain INSERT races when separate repository
+            # instances (or processes) import the same crop.
+            cursor = connection.execute(
+                """INSERT INTO duel_portrait_templates
+                   (path, shishen_id, name, view, hash, source, confidence, created_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(view, hash) DO NOTHING""",
+                (
+                    path,
+                    item.shishen_id,
+                    name,
+                    item.view,
+                    item.hash,
+                    source,
+                    item.confidence,
+                    now,
+                    now,
+                ),
+            )
+            existing = connection.execute(
+                "SELECT * FROM duel_portrait_templates WHERE view=? AND hash=?",
+                (item.view, item.hash),
+            ).fetchone()
+            if existing is None:
+                raise RuntimeError(
+                    "portrait template upsert did not return a stored row"
+                )
+            if cursor.rowcount == 1:
+                return self._portrait_from_row(existing), True
+
+            # Re-importing an unresolved crop must not erase a label already
+            # assigned by a human or a higher-confidence recognizer.
+            existing_identity = existing["shishen_id"]
+            use_new_identity = (
+                item.shishen_id is not None
+                and (
+                    existing_identity is None
+                    or (
+                        existing["source"] != "manual"
+                        and item.confidence > float(existing["confidence"])
+                    )
+                )
+            )
+            identity = item.shishen_id if use_new_identity else existing_identity
+            identity_name = name if use_new_identity else existing["name"]
+            stored_path = (
+                path
+                if use_new_identity or existing_identity is None
+                else existing["path"]
+            )
+            confidence = max(float(existing["confidence"]), item.confidence)
+            connection.execute(
+                """UPDATE duel_portrait_templates
+                   SET path=?, shishen_id=?, name=?, source=?, confidence=?, updated_at=?
+                   WHERE id=?""",
+                (
+                    stored_path,
+                    identity,
+                    identity_name,
+                    source if use_new_identity or existing_identity is None else existing["source"],
+                    confidence,
+                    now,
+                    existing["id"],
+                ),
+            )
+            row = connection.execute(
+                "SELECT * FROM duel_portrait_templates WHERE id=?",
+                (existing["id"],),
+            ).fetchone()
+            return self._portrait_from_row(row), False
+
+    def get_portrait_template(self, template_id: int) -> DuelPortraitTemplate | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT * FROM duel_portrait_templates WHERE id=?",
+                (template_id,),
+            ).fetchone()
+        return self._portrait_from_row(row) if row else None
+
+    def list_unresolved_portrait_templates(
+        self,
+        *,
+        page: int = 1,
+        page_size: int = 100,
+        view: str | None = None,
+    ) -> DuelPortraitTemplateList:
+        clauses = ["shishen_id IS NULL"]
+        params: list[Any] = []
+        if view is not None:
+            clauses.append("view=?")
+            params.append(view)
+        where = " WHERE " + " AND ".join(clauses)
+        with self._connect() as connection:
+            total = int(
+                connection.execute(
+                    f"SELECT COUNT(*) FROM duel_portrait_templates{where}",
+                    params,
+                ).fetchone()[0]
+            )
+            rows = connection.execute(
+                f"""SELECT * FROM duel_portrait_templates{where}
+                    ORDER BY id LIMIT ? OFFSET ?""",
+                params + [page_size, (page - 1) * page_size],
+            ).fetchall()
+        return DuelPortraitTemplateList(
+            total=total,
+            page=page,
+            page_size=page_size,
+            items=[self._portrait_from_row(row) for row in rows],
+        )
+
+    def delete_unresolved_portrait_templates(self) -> int:
+        """Delete discarded, still-unlabelled portrait rows only."""
+
+        with self._write_lock, self._connect() as connection:
+            cursor = connection.execute(
+                "DELETE FROM duel_portrait_templates WHERE shishen_id IS NULL"
+            )
+            return max(0, int(cursor.rowcount))
+
+    def portrait_status(self) -> DuelPortraitStatus:
+        with self._connect() as connection:
+            totals = connection.execute(
+                """SELECT COUNT(*) total,
+                   SUM(CASE WHEN shishen_id IS NOT NULL THEN 1 ELSE 0 END) recognized
+                   FROM duel_portrait_templates"""
+            ).fetchone()
+            recognized_id_rows = connection.execute(
+                """SELECT DISTINCT shishen_id
+                   FROM duel_portrait_templates
+                   WHERE shishen_id IS NOT NULL"""
+            ).fetchall()
+            views = connection.execute(
+                """SELECT view, COUNT(*) count FROM duel_portrait_templates
+                   GROUP BY view ORDER BY view"""
+            ).fetchall()
+        total = int(totals["total"] or 0)
+        recognized = int(totals["recognized"] or 0)
+        recognized_ids = {
+            str(row["shishen_id"]) for row in recognized_id_rows
+        }
+        assets = self.latest_snapshot("shishen_assets")
+        if isinstance(assets, dict):
+            assets = next(
+                (
+                    assets[key]
+                    for key in ("items", "data", "list")
+                    if isinstance(assets.get(key), list)
+                ),
+                [],
+            )
+        if not isinstance(assets, list):
+            assets = []
+        asset_ids = {
+            str(item.get("id"))
+            for item in assets
+            if isinstance(item, dict) and item.get("id") is not None
+        }
+        asset_id_count = len(asset_ids)
+        # Historical or manually-entered IDs outside the current mapping must
+        # never compensate for a missing mapped shikigami in the AUTO gate.
+        covered_id_count = len(recognized_ids & asset_ids)
+        if not asset_ids:
+            # Preserve useful diagnostics before the initialization snapshot
+            # exists, while coverage_complete remains false below.
+            covered_id_count = len(recognized_ids)
+        library_root = (
+            self.database_path.parent / "portrait_library"
+        ).resolve()
+        try:
+            library_path = library_root.relative_to(
+                PROJECT_ROOT.resolve()
+            ).as_posix()
+        except ValueError:
+            library_path = library_root.as_posix()
+        return DuelPortraitStatus(
+            total=total,
+            recognized=recognized,
+            unresolved=total - recognized,
+            by_view={str(row["view"]): int(row["count"]) for row in views},
+            library_path=library_path,
+            asset_id_count=asset_id_count,
+            covered_id_count=covered_id_count,
+            coverage_complete=(
+                asset_id_count > 0
+                and covered_id_count == asset_id_count
+            ),
+            # Compatibility for OASX versions that still expose these fields.
+            # Fixed-slot selection no longer needs large identity templates.
+            onmyoji_ready=True,
+            missing_onmyoji_templates=[],
+        )
+
+    def label_portrait_template(
+        self,
+        template_id: int,
+        *,
+        shishen_id: int,
+        name: str,
+        source: str = "manual",
+        confidence: float = 1.0,
+        path: str | None = None,
+    ) -> DuelPortraitTemplate | None:
+        now = _utc_now()
+        normalized_path = (
+            str(sanitize_for_storage(path)).strip()
+            if path is not None
+            else None
+        )
+        with self._write_lock, self._connect() as connection:
+            cursor = connection.execute(
+                """UPDATE duel_portrait_templates
+                   SET shishen_id=?, name=?, source=?, confidence=?,
+                       path=COALESCE(?, path), updated_at=?
+                   WHERE id=?""",
+                (
+                    int(shishen_id),
+                    str(sanitize_for_storage(name)).strip(),
+                    str(sanitize_for_storage(source)).strip(),
+                    float(confidence),
+                    normalized_path,
+                    now,
+                    template_id,
+                ),
+            )
+            if cursor.rowcount == 0:
+                return None
+            row = connection.execute(
+                "SELECT * FROM duel_portrait_templates WHERE id=?",
+                (template_id,),
+            ).fetchone()
+        return self._portrait_from_row(row)

@@ -10,14 +10,14 @@ from typing import Any, AsyncIterator
 from module.duel_data.security import sanitize_for_storage
 
 
-LIVE_EVENT_TYPES = frozenset({"state", "recommendation", "match"})
+LIVE_EVENT_TYPES = frozenset({"state", "recommendation", "action", "match"})
 DUEL_LIVE_QUEUE_KEY = "duel_live"
 
 
 @dataclass
 class _Subscriber:
     loop: asyncio.AbstractEventLoop
-    queue: asyncio.Queue[tuple[str, Any]]
+    queue: asyncio.Queue[tuple[int, str, Any]]
     config_name: str | None = None
 
 
@@ -28,7 +28,8 @@ class DuelLiveEventBroker:
         self._queue_size = queue_size
         self._lock = threading.Lock()
         self._subscribers: dict[str, _Subscriber] = {}
-        self._latest: dict[tuple[str | None, str], Any] = {}
+        self._latest: dict[tuple[str | None, str], tuple[int, Any]] = {}
+        self._revision = 0
 
     def publish(self, event: str, data: Any) -> None:
         if event not in LIVE_EVENT_TYPES:
@@ -38,12 +39,15 @@ class DuelLiveEventBroker:
         if isinstance(payload, dict) and payload.get("config_name"):
             event_config = str(payload["config_name"])
         with self._lock:
+            self._revision += 1
+            revision = self._revision
             # Every accepted state/context update invalidates the previous
             # recommendation. A following recommendation event repopulates it
             # for that exact fingerprint.
             if event == "state":
                 self._latest.pop((event_config, "recommendation"), None)
-            self._latest[(event_config, event)] = payload
+                self._latest.pop((event_config, "action"), None)
+            self._latest[(event_config, event)] = (revision, payload)
             subscribers = list(self._subscribers.items())
         for subscriber_id, subscriber in subscribers:
             if (
@@ -59,7 +63,7 @@ class DuelLiveEventBroker:
                     except asyncio.QueueEmpty:
                         pass
                 try:
-                    target.queue.put_nowait((event, payload))
+                    target.queue.put_nowait((revision, event, payload))
                 except asyncio.QueueFull:
                     pass
 
@@ -68,6 +72,54 @@ class DuelLiveEventBroker:
             except RuntimeError:
                 with self._lock:
                     self._subscribers.pop(subscriber_id, None)
+
+    def snapshot(self, *, config_name: str | None = None) -> dict[str, Any]:
+        """Return the same latest state/recommendation/action as SSE replay."""
+
+        normalized_config = str(config_name).strip() if config_name else None
+        with self._lock:
+            replay = [
+                (revision, event, payload)
+                for (event_config, event), (revision, payload)
+                in self._latest.items()
+                if event in {"state", "recommendation", "action"}
+                and (
+                    event_config is None
+                    or normalized_config is None
+                    or event_config == normalized_config
+                )
+            ]
+        replay.sort(key=lambda item: item[0])
+        snapshot: dict[str, Any] = {
+            "state": "idle",
+            **(
+                {"config_name": normalized_config}
+                if normalized_config
+                else {}
+            ),
+        }
+        latest_revision = 0
+        for revision, event, payload in replay:
+            if isinstance(payload, dict):
+                item = dict(payload)
+                if (
+                    event == "state"
+                    and "confidence" in item
+                    and "recognition_confidence" not in item
+                ):
+                    item["recognition_confidence"] = item.pop(
+                        "confidence"
+                    )
+                elif (
+                    event == "action"
+                    and "confidence" in item
+                    and "action_confidence" not in item
+                ):
+                    item["action_confidence"] = item.pop("confidence")
+                snapshot.update(item)
+            latest_revision = max(latest_revision, revision)
+        snapshot["event_id"] = latest_revision
+        return sanitize_for_storage(snapshot)
 
     async def stream(
         self,
@@ -85,20 +137,16 @@ class DuelLiveEventBroker:
         with self._lock:
             self._subscribers[subscriber_id] = subscriber
             replay = [
-                (event, payload)
-                for (event_config, event), payload in self._latest.items()
+                (revision, event, payload)
+                for (event_config, event), (revision, payload)
+                in self._latest.items()
                 if event_config is None
                 or normalized_config is None
                 or event_config == normalized_config
             ]
         try:
-            replay.sort(
-                key=lambda item: (
-                    0 if item[0] == "state" else 1 if item[0] == "recommendation" else 2,
-                    item[0],
-                )
-            )
-            if not any(event == "state" for event, _ in replay):
+            replay.sort(key=lambda item: item[0])
+            if not any(event == "state" for _, event, _ in replay):
                 yield self.encode(
                     "state",
                     {
@@ -109,13 +157,17 @@ class DuelLiveEventBroker:
                             else {}
                         ),
                     },
+                    event_id=0,
                 )
-            for event, payload in replay:
-                yield self.encode(event, payload)
+            for revision, event, payload in replay:
+                yield self.encode(event, payload, event_id=revision)
             while True:
                 try:
-                    event, data = await asyncio.wait_for(subscriber.queue.get(), timeout=heartbeat_seconds)
-                    yield self.encode(event, data)
+                    revision, event, data = await asyncio.wait_for(
+                        subscriber.queue.get(),
+                        timeout=heartbeat_seconds,
+                    )
+                    yield self.encode(event, data, event_id=revision)
                 except asyncio.TimeoutError:
                     yield ": heartbeat\n\n"
         finally:
@@ -123,9 +175,15 @@ class DuelLiveEventBroker:
                 self._subscribers.pop(subscriber_id, None)
 
     @staticmethod
-    def encode(event: str, data: Any) -> str:
+    def encode(
+        event: str,
+        data: Any,
+        *,
+        event_id: int | None = None,
+    ) -> str:
         payload = json.dumps(sanitize_for_storage(data), ensure_ascii=False, separators=(",", ":"), default=str)
-        return f"event: {event}\ndata: {payload}\n\n"
+        prefix = f"id: {event_id}\n" if event_id is not None else ""
+        return f"{prefix}event: {event}\ndata: {payload}\n\n"
 
 
 duel_live_broker = DuelLiveEventBroker()

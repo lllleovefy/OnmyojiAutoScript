@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, field_validator
 
 DuelSide = Literal["self", "opponent"]
 DuelResult = Literal["win", "loss", "unknown"]
+DuelIdentityStatus = Literal["pending", "recognized", "unresolved"]
 
 
 def normalize_utc_iso(value: str) -> str:
@@ -54,13 +55,62 @@ class DuelStrategy(BaseModel):
     source_strategy_id: str | None = None
 
 
+class DuelOpponentSlot(BaseModel):
+    """One spatial opponent slot in a live BP observation."""
+
+    slot: int = Field(ge=1, le=5)
+    shishen_id: int | None = Field(default=None, ge=0)
+    shikigami_id: int | None = Field(default=None, ge=0)
+    confidence: float = Field(default=0, ge=0, le=1)
+    source: str = ""
+    status: DuelIdentityStatus = "pending"
+
+
+class DuelLiveState(BaseModel):
+    """Backward-compatible public wire shape emitted by the ``state`` event."""
+
+    state: str
+    phase: str | None = None
+    config_name: str | None = None
+    mode: Literal["off", "observe", "recommend", "auto"] | None = None
+    confidence: float = Field(default=0, ge=0, le=1)
+    round: int | None = Field(default=None, ge=1, le=6)
+    own_picks: list[int] = Field(default_factory=list)
+    opponent_picks: list[int] = Field(default_factory=list)
+    opponent_slots: list[DuelOpponentSlot] = Field(default_factory=list)
+    pending_own_pick: int | None = Field(default=None, ge=0)
+    selected_onmyoji: int | str | None = None
+    action: str | None = None
+
+
+class DuelLiveAction(BaseModel):
+    """Public wire shape for one observable BP automation action."""
+
+    action: str
+    status: str = "pending"
+    state: str | None = None
+    phase: str | None = None
+    config_name: str | None = None
+    mode: Literal["off", "observe", "recommend", "auto"] | None = None
+    round: int | None = Field(default=None, ge=1, le=6)
+    shishen_id: int | None = Field(default=None, ge=0)
+    confidence: float | None = Field(default=None, ge=0, le=1)
+    selected_verified: bool | None = None
+    confirmed: bool | None = None
+    candidate_rank: int | None = Field(default=None, ge=1)
+    message: str = ""
+
+
 class DuelRecommendationItem(BaseModel):
+    rank: int | None = Field(default=None, ge=1)
     shishen_id: int = Field(ge=0)
     shikigami_id: int = Field(ge=0)
     score: float = Field(ge=0, le=1)
     confidence: float = Field(ge=0, le=1)
     sample_size: int = Field(default=0, ge=0)
     source: Literal["rule", "personal", "external"]
+    context_level: str = ""
+    context_sample_size: int = Field(default=0, ge=0)
     reason: str = ""
     evidence_sources: list[Literal["rule", "personal", "external"]] = Field(
         default_factory=list
@@ -74,6 +124,8 @@ class DuelRecommendation(BaseModel):
     phase: str
     config_name: str | None = None
     mode: Literal["off", "observe", "recommend", "auto"]
+    target_round: int | None = Field(default=None, ge=1, le=6)
+    context_level: str = ""
     shishen_id: int = Field(ge=0)
     shikigami_id: int = Field(ge=0)
     score: float = Field(ge=0, le=1)
@@ -88,6 +140,65 @@ class DuelRecommendation(BaseModel):
     evidence_sources: list[Literal["rule", "personal", "external"]] = Field(
         default_factory=list
     )
+
+
+class DuelPortraitTemplate(BaseModel):
+    id: int = Field(ge=1)
+    path: str
+    shishen_id: int | None = Field(default=None, ge=0)
+    name: str | None = None
+    view: str
+    hash: str
+    source: str
+    confidence: float = Field(default=0, ge=0, le=1)
+    status: DuelIdentityStatus
+    created_at: str
+    updated_at: str
+
+
+class DuelPortraitTemplateInput(BaseModel):
+    path: str = Field(min_length=1, max_length=1024)
+    shishen_id: int | None = Field(default=None, ge=0)
+    name: str | None = Field(default=None, max_length=128)
+    view: str = Field(min_length=1, max_length=64)
+    hash: str = Field(min_length=8, max_length=128)
+    source: str = Field(default="capture", min_length=1, max_length=128)
+    confidence: float = Field(default=0, ge=0, le=1)
+
+
+class DuelPortraitLabel(BaseModel):
+    shishen_id: int = Field(ge=0)
+    name: str = Field(min_length=1, max_length=128)
+    source: str = Field(default="manual", min_length=1, max_length=128)
+    confidence: float = Field(default=1, ge=0, le=1)
+
+
+class DuelShishenAsset(BaseModel):
+    """Canonical local shishen mapping exposed to correction clients."""
+
+    id: int = Field(ge=0)
+    name: str = Field(min_length=1, max_length=128)
+    alias: list[str] = Field(default_factory=list)
+
+
+class DuelPortraitTemplateList(BaseModel):
+    total: int = Field(ge=0)
+    page: int = Field(ge=1)
+    page_size: int = Field(ge=1)
+    items: list[DuelPortraitTemplate] = Field(default_factory=list)
+
+
+class DuelPortraitStatus(BaseModel):
+    total: int = Field(ge=0)
+    recognized: int = Field(ge=0)
+    unresolved: int = Field(ge=0)
+    by_view: dict[str, int] = Field(default_factory=dict)
+    library_path: str = ""
+    asset_id_count: int = Field(default=0, ge=0)
+    covered_id_count: int = Field(default=0, ge=0)
+    coverage_complete: bool = False
+    onmyoji_ready: bool = False
+    missing_onmyoji_templates: list[str] = Field(default_factory=list)
 
 
 class DuelMatchList(BaseModel):
