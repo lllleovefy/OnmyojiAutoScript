@@ -332,13 +332,18 @@ class ConfigModel(ConfigBase):
                 if key in jsons and jsons[key] == 0xABCDEF:
                     continue
 
+                # Pydantic omits ``default`` from JSON Schema when a field
+                # uses ``default_factory`` (for example bp_shishen_pool).
+                # The task model is already materialized, so its serialized
+                # value is the safe fallback for the generic config UI.
+                default = value.get("default", jsons.get(key))
                 item = {}
                 item["name"] = key
                 item["title"] = value["title"] if "title" in value else inflection.underscore(key)
                 if "description" in value:
                     item["description"] = value["description"]
-                item["default"] = value["default"]
-                item["value"] = jsons[key] if key in jsons else value["default"]
+                item["default"] = default
+                item["value"] = jsons.get(key, default)
                 item["type"] = value["type"] if "type" in value else "enum"
                 if '$ref' in value:  # list
                     enum_key = re.search(r"/([^/]+)$", value['$ref']).group(1)
