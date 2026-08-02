@@ -179,7 +179,10 @@ coverage.xml
 local_settings.py
 db.sqlite3
 config/duel/*.sqlite3*
-config/duel/portrait_library/
+config/duel/portrait_library/.portrait-library.lock
+config/duel/portrait_library/_unresolved/
+config/duel/portrait_library/unresolved.jsonl
+config/duel/portrait_library/resolve_report.json
 
 # Flask stuff:
 instance/
@@ -277,3 +280,4 @@ console.bat
 .vscode/*
 tasks/AutoCheckinBigGod/frida-server-17.6.2-android-x86_64
 oas.bat
+.codex_pydeps/
