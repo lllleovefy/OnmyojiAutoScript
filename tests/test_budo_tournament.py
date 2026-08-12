@@ -128,7 +128,26 @@ class BudoTournamentActTest(unittest.TestCase):
             transition for transition in page_map[pages.page_main.key].transitions
             if transition.key == 'page_main->page_act'
         )
-        self.assertIs(main_transition.action, act.I_BUDO_MAIN_ENTRY)
+        self.assertEqual(main_transition.action.__name__, '_enter_from_side_activity')
+
+    def test_side_activity_entry_scrolls_until_budo_is_visible(self):
+        act = self.make_act('pass')
+        visible = {'budo': False}
+        act.screenshot = Mock()
+
+        def click(target, **_kwargs):
+            if target is act.I_BUDO_SIDE_ENTRY:
+                return visible['budo']
+            if target is act.I_TOGGLE_BUTTON:
+                visible['budo'] = True
+                return True
+            return False
+
+        act.appear_then_click = Mock(side_effect=click)
+
+        self.assertTrue(act._enter_from_side_activity())
+        act.appear_then_click.assert_any_call(act.I_TOGGLE_BUTTON, interval=1.5)
+        act.appear_then_click.assert_any_call(act.I_BUDO_SIDE_ENTRY, interval=1.5)
 
 
 class BudoTournamentAssetsTest(unittest.TestCase):

@@ -134,8 +134,8 @@ class ActivityShikigamiAssets:
 	I_AS_CLOSE_EYE = RuleImage(roi_front=(1197,297,63,57), roi_back=(1146,253,134,217), threshold=0.8, method="Template matching", file="./tasks/ActivityShikigami/as/as_as_close_eye.png")
 	# 活动主界面进入体力爬塔标志 
 	I_TO_BATTLE_AP = RuleImage(roi_front=(825,321,39,139), roi_back=(720,255,238,269), threshold=0.8, method="Template matching", file="./tasks/ActivityShikigami/as/as_to_battle_ap.png")
-	# 庭院进入武道大会 
-	I_BUDO_MAIN_ENTRY = RuleImage(roi_front=(311,420,55,61), roi_back=(150,100,1050,500), threshold=0.8, method="Template matching", file="./tasks/ActivityShikigami/as/as_budo_main_entry.png")
+	# 庭院右侧活动栏进入武道大会 
+	I_BUDO_SIDE_ENTRY = RuleImage(roi_front=(1190,298,43,46), roi_back=(1080,150,200,450), threshold=0.8, method="Template matching", file="./tasks/ActivityShikigami/as/as_budo_side_entry.png")
 	# 武道大会主页标志 
 	I_BUDO_HOME = RuleImage(roi_front=(151,21,132,34), roi_back=(100,0,300,90), threshold=0.8, method="Template matching", file="./tasks/ActivityShikigami/as/as_budo_home.png")
 	# 进入修行合训 

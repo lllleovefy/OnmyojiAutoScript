@@ -126,13 +126,13 @@
     "description": "活动主界面进入体力爬塔标志"
   },
   {
-    "itemName": "budo_main_entry",
-    "imageName": "as_budo_main_entry.png",
-    "roiFront": "311,420,55,61",
-    "roiBack": "150,100,1050,500",
+    "itemName": "budo_side_entry",
+    "imageName": "as_budo_side_entry.png",
+    "roiFront": "1190,298,43,46",
+    "roiBack": "1080,150,200,450",
     "method": "Template matching",
     "threshold": 0.8,
-    "description": "庭院进入武道大会"
+    "description": "庭院右侧活动栏进入武道大会"
   },
   {
     "itemName": "budo_home",

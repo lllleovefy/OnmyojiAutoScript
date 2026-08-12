@@ -6,6 +6,7 @@ from module.logger import logger
 from tasks.ActivityShikigami.base_act import BaseAct, TicketsNotEnough
 from tasks.ActivityShikigami.config import GeneralBattleConfig
 from tasks.Component.GeneralBattle.general_battle import ExitMatcher
+from tasks.Component.RightActivity.assets import RightActivityAssets
 import tasks.ActivityShikigami.page as pages
 
 
@@ -13,6 +14,7 @@ class BudoTournamentAct(BaseAct):
     """武道大会活动适配器。"""
 
     supported_climb_types = frozenset({'pass', 'ap'})
+    I_TOGGLE_BUTTON = RightActivityAssets.I_TOGGLE_BUTTON
 
     def _exit_matcher(self) -> ExitMatcher | None:
         return pages.any_of(self.I_BUDO_PASS_PAGE, self.I_BUDO_AP_PAGE)
@@ -29,7 +31,7 @@ class BudoTournamentAct(BaseAct):
         page_ap.recognizer = pages.any_of(self.I_BUDO_AP_PAGE)
 
         # 替换上一期活动路径，仅保留武道大会支持的两种玩法。
-        page_main.connect(page_act, self.I_BUDO_MAIN_ENTRY, key='page_main->page_act')
+        page_main.connect(page_act, self._enter_from_side_activity, key='page_main->page_act')
         for destination in (page_pass, page_ap,
                             self.navigator.resolve_page(pages.page_act_ap100),
                             self.navigator.resolve_page(pages.page_act_boss)):
@@ -38,6 +40,17 @@ class BudoTournamentAct(BaseAct):
         page_act.connect(page_ap, self.I_BUDO_TO_AP, key='page_act->page_act_ap')
         page_pass.connect(page_act, self.I_UI_BACK_YELLOW, key='page_act_pass->page_act')
         page_ap.connect(page_act, self.I_UI_BACK_YELLOW, key='page_act_ap->page_act')
+
+    def _enter_from_side_activity(self) -> bool:
+        """滚动庭院右侧活动栏，找到武道大会入口后进入。"""
+        find_timer = Timer(12).start()
+        while not find_timer.reached():
+            self.screenshot()
+            if self.appear_then_click(self.I_BUDO_SIDE_ENTRY, interval=1.5):
+                return True
+            self.appear_then_click(self.I_TOGGLE_BUTTON, interval=1.5)
+        logger.warning('Cannot find Budo Tournament in right activity list')
+        return False
 
     def _run_pass(self):
         self._open_pass_challenge()
