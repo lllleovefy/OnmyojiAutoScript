@@ -88,5 +88,23 @@
     "method": "Template matching",
     "threshold": 0.8,
     "description": "boss挑战标志"
+  },
+  {
+    "itemName": "budo_ap_lock",
+    "imageName": "as_budo_ap_lock.png",
+    "roiFront": "874,641,22,25",
+    "roiBack": "820,600,200,100",
+    "method": "Template matching",
+    "threshold": 0.8,
+    "description": "日常训练阵容已锁定"
+  },
+  {
+    "itemName": "budo_ap_unlock",
+    "imageName": "as_budo_ap_unlock.png",
+    "roiFront": "874,641,22,25",
+    "roiBack": "820,600,200,100",
+    "method": "Template matching",
+    "threshold": 0.8,
+    "description": "日常训练阵容未锁定"
   }
 ]

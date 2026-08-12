@@ -6,6 +6,7 @@ from tasks.Component.GeneralBattle.general_battle import GeneralBattle, ExitMatc
 from cached_property import cached_property
 
 from module.atom.image import RuleImage
+from module.atom.ocr import RuleOcr
 from module.base.protect import random_sleep
 from module.base.timer import Timer
 from module.exception import TaskEnd
@@ -37,16 +38,29 @@ class StateMachine(BaseTask):
     _count_map = None
     _pre_tickets_map = None
     switch_souled: dict[str, bool] = {}
+    supported_climb_types: frozenset[str] | None = None
 
     @cached_property
     def conf(self) -> ActivityShikigami:
         return self.config.model.activity_shikigami
 
+    @cached_property
+    def run_sequence(self) -> list[str]:
+        """返回当前活动实际支持的玩法顺序。"""
+        configured = self.conf.general_climb.run_sequence_v
+        if self.supported_climb_types is None:
+            return configured
+
+        unsupported = [item for item in configured if item not in self.supported_climb_types]
+        for climb_type in unsupported:
+            logger.warning(f'Climb type {climb_type} is not supported by current activity, skip it')
+        return [item for item in configured if item in self.supported_climb_types]
+
     @property
     def climb_type(self) -> str:
-        if self.run_idx >= len(self.conf.general_climb.run_sequence_v):
-            return self.conf.general_climb.run_sequence_v[-1]
-        return self.conf.general_climb.run_sequence_v[self.run_idx]
+        if self.run_idx >= len(self.run_sequence):
+            return self.run_sequence[-1]
+        return self.run_sequence[self.run_idx]
 
     @property
     def count_map(self) -> dict[str, int]:
@@ -54,7 +68,7 @@ class StateMachine(BaseTask):
         :return: key: climb type, value: run count
         """
         if not getattr(self, "_count_map", None):
-            self._count_map = {climb_type: 0 for climb_type in self.conf.general_climb.run_sequence_v}
+            self._count_map = {climb_type: 0 for climb_type in self.run_sequence}
         return self._count_map
 
     @property
@@ -63,7 +77,7 @@ class StateMachine(BaseTask):
         :return: key: climb type, value: pre tickets num
         """
         if not getattr(self, "_pre_tickets_map", None):
-            self._pre_tickets_map = {climb_type: -1 for climb_type in self.conf.general_climb.run_sequence_v}
+            self._pre_tickets_map = {climb_type: -1 for climb_type in self.run_sequence}
         return self._pre_tickets_map
 
     def update_status(self):
@@ -93,7 +107,7 @@ class StateMachine(BaseTask):
         :return: True 切换成功 or False
         """
         self.run_idx += 1
-        if self.run_idx >= len(self.conf.general_climb.run_sequence_v):
+        if self.run_idx >= len(self.run_sequence):
             logger.info('All climbing activities have been completed')
             return False
         # 切换爬塔类型了, 恢复所有状态
@@ -134,7 +148,7 @@ class BaseAct(StateMachine, GameUi, GeneralBattle, SwitchSoul, ActivityShikigami
 
     def run(self):
         self.before_run()
-        for climb_type in self.conf.general_climb.run_sequence_v:
+        for climb_type in self.run_sequence:
             logger.hr(f'Start run {self.climb_type}', 1)
             dest_page: Optional[pages.Page] = getattr(pages, f'page_act_{climb_type}', None)
             if not dest_page:
@@ -193,15 +207,27 @@ class BaseAct(StateMachine, GameUi, GeneralBattle, SwitchSoul, ActivityShikigami
             self.run_general_battle(getattr(self.conf, f'{self.climb_type}_battle_conf'),
                                     battle_key=f'act_{self.climb_type}')
 
-    def enter_battle(self):
+    def enter_battle(self, start_target: RuleImage | RuleOcr | None = None):
+        """点击开战按钮并确认已经进入战斗。
+
+        未指定 ``start_target`` 时继续使用原有 OCR 挑战按钮，保证旧活动行为不变。
+        """
+        custom_start_target = start_target is not None
+        start_target = start_target or self.O_FIRE
         click_times, max_times = 0, random.randint(3, 5)
+        enter_timer = Timer(20).start()
         while True:
             self.screenshot()
             if self.is_in_battle(False):
                 return True
-            if click_times >= max_times:
+            if click_times >= max_times or enter_timer.reached():
                 logger.warning(f'{self.climb_type} cannot enter battle, click reach max times')
                 raise TicketsNotEnough
+            if custom_start_target and self._click_battle_start(start_target):
+                self.device.click_record_clear()
+                click_times += 1
+                logger.info(f'Try click fire, remain times[{max_times - click_times}]')
+                continue
             if self.appear(self.I_UI_BACK_RED, interval=1):
                 logger.warning(
                     f'{self.climb_type} cannot enter battle, appear red close button, maybe not enough tickets')
@@ -209,11 +235,17 @@ class BaseAct(StateMachine, GameUi, GeneralBattle, SwitchSoul, ActivityShikigami
             if self.appear_then_click(self.I_UI_CONFIRM_SAMLL, interval=1) or \
                     self.appear_then_click(self.I_UI_CONFIRM, interval=1):
                 continue
-            if self.ocr_appear_click(self.O_FIRE, interval=1.5):
+            if not custom_start_target and self._click_battle_start(start_target):
                 self.device.click_record_clear()
                 click_times += 1
                 logger.info(f'Try click fire, remain times[{max_times - click_times}]')
                 continue
+
+    def _click_battle_start(self, start_target: RuleImage | RuleOcr) -> bool:
+        """点击指定开战目标。"""
+        if isinstance(start_target, RuleOcr):
+            return self.ocr_appear_click(start_target, interval=1.5)
+        return self.appear_then_click(start_target, interval=1.5)
 
     def switch_soul(self, enter_button: RuleImage):
         if self.switch_souled.get(self.climb_type, False):
