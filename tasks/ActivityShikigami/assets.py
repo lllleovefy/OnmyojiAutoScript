@@ -44,10 +44,6 @@ class ActivityShikigamiAssets:
 	I_ACT_FIRE = RuleImage(roi_front=(1132,602,84,45), roi_back=(1080,530,192,190), threshold=0.8, method="Template matching", file="./tasks/ActivityShikigami/as/as_act_fire.png")
 	# boss挑战标志 
 	I_AS_BOSS_FIRE = RuleImage(roi_front=(1130,590,92,47), roi_back=(1080,530,192,190), threshold=0.8, method="Template matching", file="./tasks/ActivityShikigami/as/as_as_boss_fire.png")
-	# 日常训练阵容已锁定 
-	I_BUDO_AP_LOCK = RuleImage(roi_front=(874,641,22,25), roi_back=(820,600,200,100), threshold=0.8, method="Template matching", file="./tasks/ActivityShikigami/as/as_budo_ap_lock.png")
-	# 日常训练阵容未锁定 
-	I_BUDO_AP_UNLOCK = RuleImage(roi_front=(874,641,22,25), roi_back=(820,600,200,100), threshold=0.8, method="Template matching", file="./tasks/ActivityShikigami/as/as_budo_ap_unlock.png")
 
 
 	# Image Rule Assets
@@ -134,25 +130,5 @@ class ActivityShikigamiAssets:
 	I_AS_CLOSE_EYE = RuleImage(roi_front=(1197,297,63,57), roi_back=(1146,253,134,217), threshold=0.8, method="Template matching", file="./tasks/ActivityShikigami/as/as_as_close_eye.png")
 	# 活动主界面进入体力爬塔标志 
 	I_TO_BATTLE_AP = RuleImage(roi_front=(825,321,39,139), roi_back=(720,255,238,269), threshold=0.8, method="Template matching", file="./tasks/ActivityShikigami/as/as_to_battle_ap.png")
-	# 庭院右侧活动栏进入武道大会 
-	I_BUDO_SIDE_ENTRY = RuleImage(roi_front=(1190,298,43,46), roi_back=(1080,150,200,450), threshold=0.8, method="Template matching", file="./tasks/ActivityShikigami/as/as_budo_side_entry.png")
-	# 武道大会主页标志 
-	I_BUDO_HOME = RuleImage(roi_front=(151,21,132,34), roi_back=(100,0,300,90), threshold=0.8, method="Template matching", file="./tasks/ActivityShikigami/as/as_budo_home.png")
-	# 进入修行合训 
-	I_BUDO_TO_PASS = RuleImage(roi_front=(1117,238,29,157), roi_back=(950,150,300,350), threshold=0.8, method="Template matching", file="./tasks/ActivityShikigami/as/as_budo_to_pass.png")
-	# 进入日常训练 
-	I_BUDO_TO_AP = RuleImage(roi_front=(184,217,32,109), roi_back=(100,150,250,300), threshold=0.8, method="Template matching", file="./tasks/ActivityShikigami/as/as_budo_to_ap.png")
-	# 修行合训页面标志 
-	I_BUDO_PASS_PAGE = RuleImage(roi_front=(159,21,130,34), roi_back=(100,0,300,90), threshold=0.8, method="Template matching", file="./tasks/ActivityShikigami/as/as_budo_pass_page.png")
-	# 修行合训搜寻按钮 
-	I_BUDO_SEARCH = RuleImage(roi_front=(1104,590,83,61), roi_back=(980,500,300,200), threshold=0.8, method="Template matching", file="./tasks/ActivityShikigami/as/as_budo_search.png")
-	# 修行合训开启挑战按钮 
-	I_BUDO_PASS_FIRE = RuleImage(roi_front=(1082,520,128,122), roi_back=(950,430,330,290), threshold=0.8, method="Template matching", file="./tasks/ActivityShikigami/as/as_budo_pass_fire.png")
-	# 日常训练页面标志 
-	I_BUDO_AP_PAGE = RuleImage(roi_front=(159,21,125,34), roi_back=(100,0,300,90), threshold=0.8, method="Template matching", file="./tasks/ActivityShikigami/as/as_budo_ap_page.png")
-	# 日常训练挑战按钮 
-	I_BUDO_AP_FIRE = RuleImage(roi_front=(1121,556,117,130), roi_back=(980,480,300,240), threshold=0.8, method="Template matching", file="./tasks/ActivityShikigami/as/as_budo_ap_fire.png")
-	# 武道大会进入式神录 
-	I_BUDO_TO_RECORDS = RuleImage(roi_front=(1000,546,44,57), roi_back=(930,500,200,190), threshold=0.8, method="Template matching", file="./tasks/ActivityShikigami/as/as_budo_to_records.png")
 
 
