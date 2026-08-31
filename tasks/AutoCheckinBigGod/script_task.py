@@ -8,6 +8,7 @@ import sys
 import time
 import json
 import random
+import shlex
 
 # 直接运行本脚本时，需要先将项目根目录加入 Python 路径
 if __name__ == '__main__' and 'tasks' not in sys.modules:
@@ -248,7 +249,8 @@ class ScriptTask(ManualClaimMixin):
         if root_mode == 'adb':
             return self._adb_shell([command], timeout=timeout)
         if root_mode == 'su':
-            return self._adb_shell(['su', '-c', command], timeout=timeout)
+            remote_command = f'su 0 sh -c {shlex.quote(command)}'
+            return self._adb_shell([remote_command], timeout=timeout)
         raise RuntimeError('模拟器未提供Root权限')
 
     def _get_app_pid(self):
