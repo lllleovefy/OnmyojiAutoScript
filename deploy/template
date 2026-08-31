@@ -181,3 +181,7 @@ Deploy:
     # '["alas"]' specified "alas" config
     # '["alas","alas2"]' specified "alas" "alas2" configs
     Run: null
+    # Delay between auto-run script instances to avoid startup CPU spikes
+    # [Disable] 0
+    # [Default] 60
+    ScriptStartIntervalSeconds: 60

@@ -4,6 +4,7 @@
 from contextlib import asynccontextmanager
 
 import argparse
+import asyncio
 import json
 from pathlib import Path
 from fastapi import FastAPI, Request
@@ -79,12 +80,35 @@ async def on_startup():
     """
     ensure_api_logger()
     logger.info('OAS web service startup done')
+    app.state.script_startup_task = None
     if app.state.script_instances:
-        await mm.restart_processes(app.state.script_instances)
+        app.state.script_startup_task = asyncio.create_task(
+            restart_script_instances(app.state.script_instances),
+            name='script_startup',
+        )
 
 
 async def on_shutdown():
+    startup_task = getattr(app.state, 'script_startup_task', None)
+    if startup_task is not None and not startup_task.done():
+        startup_task.cancel()
+        try:
+            await startup_task
+        except asyncio.CancelledError:
+            logger.info('Sequential script startup cancelled')
     logger.info('OAS web service shutdown done')
+
+
+async def restart_script_instances(script_instances: list[str]) -> None:
+    try:
+        await mm.restart_processes(
+            script_instances,
+            startup_interval_seconds=State.deploy_config.ScriptStartIntervalSeconds,
+        )
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        logger.exception('Sequential script startup failed')
 
 
 @app.exception_handler(Exception)
