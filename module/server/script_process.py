@@ -91,6 +91,9 @@ class ScriptProcess(ScriptWSManager):
                     if not data:
                         await sleep(0.5)
                         continue
+                    from module.duel_data.live import relay_queued_live_event
+                    if relay_queued_live_event(data):
+                        continue
                     if 'state' in data and data['state'] == ScriptState.WARNING:
                         self.state = ScriptState.WARNING
                     await self.broadcast_state(data)

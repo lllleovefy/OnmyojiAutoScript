@@ -99,16 +99,29 @@ class MainManager(ConfigManager):
                     tasks[coroutine_log_name] = asyncio.create_task(script_p.coroutine_broadcast_log(),
                                                                     name=coroutine_log_name)
 
-    async def restart_processes(self, script_instances: list[str]):
+    async def restart_processes(
+        self,
+        script_instances: list[str],
+        startup_interval_seconds: float = 0,
+    ) -> None:
+        processes_to_start: list[tuple[str, ScriptProcess]] = []
         for instance in script_instances:
-            logger.info(f'Restart script {instance}')
             if instance not in self.script_process:
                 try:
                     self.script_process[instance] = ScriptProcess(instance)
                 except FileNotFoundError:
                     logger.error(f'{instance} file not found')
                     continue
-            await self.script_process[instance].start()
+            processes_to_start.append((instance, self.script_process[instance]))
+
+        interval = max(0.0, float(startup_interval_seconds))
+        total = len(processes_to_start)
+        for index, (instance, script_process) in enumerate(processes_to_start, start=1):
+            logger.info(f'Restart script {instance} ({index}/{total})')
+            await script_process.start()
+            if interval > 0 and index < total:
+                logger.info(f'Wait {interval:g}s before starting next script')
+                await asyncio.sleep(interval)
 
 
 mm = MainManager()

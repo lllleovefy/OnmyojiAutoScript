@@ -17,6 +17,9 @@ from module.exception import RequestHumanTakeover
 from module.logger import logger
 
 
+NEMU_IPC_SCREENSHOT_RETRY_TRIES = 15
+
+
 class NemuIpcIncompatible(Exception):
     pass
 
@@ -160,7 +163,9 @@ def retry(func):
             self (NemuIpcImpl):
         """
         init = None
-        for _ in range(RETRY_TRIES):
+        # MuMu 15 冷启动时渲染 IPC 可能晚于 ADB 就绪，截图失败时延长重试窗口。
+        retry_tries = NEMU_IPC_SCREENSHOT_RETRY_TRIES if func.__name__ == 'screenshot' else RETRY_TRIES
+        for _ in range(retry_tries):
             try:
                 if callable(init):
                     retry_sleep(_)
@@ -213,10 +218,10 @@ class NemuIpcImpl:
         list_dll = [
             # MuMuPlayer12
             os.path.abspath(os.path.join(nemu_folder, './shell/sdk/external_renderer_ipc.dll')),
-            # MuMuPlayer12 5.0
-            os.path.abspath(os.path.join(nemu_folder, './nx_device/12.0/shell/sdk/external_renderer_ipc.dll')),
             # MuMuPlayer15
             os.path.abspath(os.path.join(nemu_folder, './nx_device/15.0/shell/sdk/external_renderer_ipc.dll')),
+            # MuMuPlayer12 5.0
+            os.path.abspath(os.path.join(nemu_folder, './nx_device/12.0/shell/sdk/external_renderer_ipc.dll')),
         ]
         self.lib = None
         for ipc_dll in list_dll:

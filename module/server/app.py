@@ -4,6 +4,8 @@
 from contextlib import asynccontextmanager
 
 import argparse
+import asyncio
+import json
 from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 
 from module.logger import logger
 from module.server.api_logger import ensure_api_logger
+from module.server.duel_data_router import duel_data_app
 from module.server.home_router import home_app
 from module.server.log_router import log_app
 from module.server.script_router import script_app
@@ -20,6 +23,19 @@ from starlette import status
 from starlette.responses import JSONResponse
 from module.server.setting import State
 from module.server.main_manager import mm
+
+
+class ASCIIJSONResponse(JSONResponse):
+    """Serialize non-ASCII characters as ``\\uXXXX`` for proxy compatibility."""
+
+    def render(self, content) -> bytes:
+        return json.dumps(
+            content,
+            ensure_ascii=True,
+            allow_nan=False,
+            indent=None,
+            separators=(",", ":"),
+        ).encode("utf-8")
 
 
 
@@ -34,6 +50,7 @@ app = FastAPI(
     description='OAS web service',
     version='0.0.0',
     lifespan=lifespan,
+    default_response_class=ASCIIJSONResponse,
 )
 
 app.add_middleware(
@@ -49,6 +66,7 @@ app.include_router(script_app)
 app.include_router(stats_app)
 app.include_router(log_app)
 app.include_router(tool_app)
+app.include_router(duel_data_app)
 
 annotator_static_dir = Path(__file__).resolve().parent / "web" / "annotator" / "static"
 if annotator_static_dir.exists():
@@ -62,12 +80,35 @@ async def on_startup():
     """
     ensure_api_logger()
     logger.info('OAS web service startup done')
+    app.state.script_startup_task = None
     if app.state.script_instances:
-        await mm.restart_processes(app.state.script_instances)
+        app.state.script_startup_task = asyncio.create_task(
+            restart_script_instances(app.state.script_instances),
+            name='script_startup',
+        )
 
 
 async def on_shutdown():
+    startup_task = getattr(app.state, 'script_startup_task', None)
+    if startup_task is not None and not startup_task.done():
+        startup_task.cancel()
+        try:
+            await startup_task
+        except asyncio.CancelledError:
+            logger.info('Sequential script startup cancelled')
     logger.info('OAS web service shutdown done')
+
+
+async def restart_script_instances(script_instances: list[str]) -> None:
+    try:
+        await mm.restart_processes(
+            script_instances,
+            startup_interval_seconds=State.deploy_config.ScriptStartIntervalSeconds,
+        )
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        logger.exception('Sequential script startup failed')
 
 
 @app.exception_handler(Exception)
@@ -76,7 +117,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
     message = ', '.join(str(arg) for arg in exc.args) if exc.args else str(exc)
 
-    return JSONResponse(
+    return ASCIIJSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
             'message': message

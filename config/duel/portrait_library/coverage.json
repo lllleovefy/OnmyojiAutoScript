@@ -1,0 +1,2019 @@
+{
+  "asset_count": 274,
+  "covered_count": 47,
+  "items": [
+    {
+      "covered": false,
+      "id": "200",
+      "name": "桃花妖",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "201",
+      "name": "雪女",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "202",
+      "name": "三尾狐",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "203",
+      "name": "灯笼鬼",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "205",
+      "name": "座敷童子",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "206",
+      "name": "鲤鱼精",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "207",
+      "name": "九命猫",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "208",
+      "name": "狸猫",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "209",
+      "name": "河童",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "210",
+      "name": "鬼使白",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "211",
+      "name": "鬼使黑",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "212",
+      "name": "童男",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "213",
+      "name": "童女",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "214",
+      "name": "饿鬼",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "215",
+      "name": "孟婆",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "216",
+      "name": "巫蛊师",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "217",
+      "name": "大天狗",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "218",
+      "name": "鸦天狗",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "219",
+      "name": "酒吞童子",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "220",
+      "name": "犬神",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "221",
+      "name": "食发鬼",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "222",
+      "name": "武士之灵",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "223",
+      "name": "骨女",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "224",
+      "name": "雨女",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "225",
+      "name": "跳跳弟弟",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "226",
+      "name": "跳跳妹妹",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "227",
+      "name": "兵俑",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "228",
+      "name": "丑时之女",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "230",
+      "name": "独眼小僧",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "231",
+      "name": "鬼女红叶",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "232",
+      "name": "铁鼠",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "233",
+      "name": "跳跳哥哥",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "234",
+      "name": "椒图",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "236",
+      "name": "管狐",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "237",
+      "name": "山兔",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "238",
+      "name": "萤草",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "241",
+      "name": "蝴蝶精",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "242",
+      "name": "傀儡师",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "243",
+      "name": "山童",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "244",
+      "name": "首无",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "245",
+      "name": "提灯小僧",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "246",
+      "name": "赤舌",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "247",
+      "name": "海坊主",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "248",
+      "name": "荒川之主",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "249",
+      "name": "觉",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "250",
+      "name": "青蛙瓷器",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "251",
+      "name": "判官",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "252",
+      "name": "凤凰火",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "253",
+      "name": "吸血姬",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "254",
+      "name": "妖狐",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": true,
+      "id": "255",
+      "name": "阎魔",
+      "template_count": 2,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": false,
+      "id": "256",
+      "name": "妖琴师",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "257",
+      "name": "食梦貘",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "258",
+      "name": "两面佛",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "259",
+      "name": "小鹿男",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "260",
+      "name": "清姬",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "261",
+      "name": "镰鼬",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "262",
+      "name": "姑获鸟",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "263",
+      "name": "二口女",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "264",
+      "name": "白狼",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "265",
+      "name": "茨木童子",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "266",
+      "name": "青行灯",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "267",
+      "name": "樱花妖",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "268",
+      "name": "惠比寿",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "269",
+      "name": "妖刀姬",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "270",
+      "name": "络新妇",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "271",
+      "name": "般若",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "272",
+      "name": "一目连",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "273",
+      "name": "青坊主",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "274",
+      "name": "古笼火",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "275",
+      "name": "万年竹",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "276",
+      "name": "夜叉",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "277",
+      "name": "黑童子",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "278",
+      "name": "白童子",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "279",
+      "name": "花鸟卷",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "280",
+      "name": "辉夜姬",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "281",
+      "name": "烟烟罗",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "282",
+      "name": "金鱼姬",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "283",
+      "name": "荒",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "285",
+      "name": "鸩",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "286",
+      "name": "以津真天",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": true,
+      "id": "287",
+      "name": "匣中少女",
+      "template_count": 1,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": false,
+      "id": "288",
+      "name": "彼岸花",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "289",
+      "name": "兔丸",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "290",
+      "name": "小松丸",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "291",
+      "name": "书翁",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "292",
+      "name": "雪童子",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "293",
+      "name": "百目鬼",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": true,
+      "id": "294",
+      "name": "奴良陆生",
+      "template_count": 1,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": false,
+      "id": "295",
+      "name": "追月神",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "296",
+      "name": "山风",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "297",
+      "name": "日和坊",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "298",
+      "name": "薰",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "300",
+      "name": "玉藻前",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "301",
+      "name": "数珠",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "302",
+      "name": "小袖之手",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "303",
+      "name": "弈",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "304",
+      "name": "御馔津",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "305",
+      "name": "卖药郎",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "306",
+      "name": "虫师",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "307",
+      "name": "猫掌柜",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "308",
+      "name": "鬼灯",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "309",
+      "name": "阿香",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "310",
+      "name": "蜜桃&芥子",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "311",
+      "name": "面灵气",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "312",
+      "name": "鬼切",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "313",
+      "name": "犬夜叉",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "314",
+      "name": "杀生丸",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": true,
+      "id": "315",
+      "name": "少羽大天狗",
+      "template_count": 2,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": false,
+      "id": "316",
+      "name": "白藏主",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "317",
+      "name": "人面树",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "318",
+      "name": "於菊虫",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "319",
+      "name": "桔梗",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "320",
+      "name": "一反木绵",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "321",
+      "name": "入殓师",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": true,
+      "id": "322",
+      "name": "炼狱茨木童子",
+      "template_count": 2,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": false,
+      "id": "323",
+      "name": "天井下",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "324",
+      "name": "化鲸",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "325",
+      "name": "八岐大蛇",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "326",
+      "name": "稻荷神御馔津",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": true,
+      "id": "327",
+      "name": "苍风一目连",
+      "template_count": 2,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": true,
+      "id": "328",
+      "name": "赤影妖刀姬",
+      "template_count": 2,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": false,
+      "id": "329",
+      "name": "海忍",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "330",
+      "name": "不知火",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": true,
+      "id": "331",
+      "name": "御怨般若",
+      "template_count": 2,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": false,
+      "id": "332",
+      "name": "久次良",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "333",
+      "name": "大岳丸",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": true,
+      "id": "334",
+      "name": "骁浪荒川之主",
+      "template_count": 1,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": false,
+      "id": "335",
+      "name": "蟹姬",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "336",
+      "name": "朽木露琪亚",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "337",
+      "name": "黑崎一护",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "338",
+      "name": "泷夜叉姬",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "339",
+      "name": "烬天玉藻前",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "340",
+      "name": "纸舞",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": true,
+      "id": "341",
+      "name": "鬼王酒吞童子",
+      "template_count": 2,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": false,
+      "id": "342",
+      "name": "星熊童子",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": true,
+      "id": "343",
+      "name": "天剑韧心鬼切",
+      "template_count": 1,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": false,
+      "id": "344",
+      "name": "云外镜",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": true,
+      "id": "345",
+      "name": "鬼童丸",
+      "template_count": 1,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": false,
+      "id": "346",
+      "name": "聆海金鱼姬",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "347",
+      "name": "缘结神",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "348",
+      "name": "浮世青行灯",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "349",
+      "name": "风狸",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "350",
+      "name": "蝎女",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "351",
+      "name": "铃鹿御前",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "352",
+      "name": "缚骨清姬",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "353",
+      "name": "紧那罗",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "354",
+      "name": "待宵姑获鸟",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": true,
+      "id": "355",
+      "name": "麓铭大岳丸",
+      "template_count": 1,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": false,
+      "id": "356",
+      "name": "千姬",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": true,
+      "id": "357",
+      "name": "初翎山风",
+      "template_count": 1,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": false,
+      "id": "358",
+      "name": "夜溟彼岸花",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "359",
+      "name": "灶门炭治郎",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "360",
+      "name": "灶门祢豆子",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "361",
+      "name": "垢尝",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "362",
+      "name": "蝉冰雪女",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "363",
+      "name": "帝释天",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "364",
+      "name": "阿修罗",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "365",
+      "name": "入内雀",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": true,
+      "id": "366",
+      "name": "空相面灵气",
+      "template_count": 4,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": true,
+      "id": "367",
+      "name": "绘世花鸟卷",
+      "template_count": 2,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": false,
+      "id": "368",
+      "name": "饴细工",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "369",
+      "name": "食灵",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "370",
+      "name": "饭笥",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "371",
+      "name": "川猿",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "372",
+      "name": "因幡辉夜姬",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "373",
+      "name": "夜刀神",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "375",
+      "name": "影鳄",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "376",
+      "name": "铃彦姬",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": true,
+      "id": "377",
+      "name": "梦寻山兔",
+      "template_count": 3,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": false,
+      "id": "378",
+      "name": "迦楼罗",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "379",
+      "name": "不见岳",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "382",
+      "name": "灵海蝶",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "383",
+      "name": "神堕八岐大蛇",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "384",
+      "name": "粉婆婆",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": true,
+      "id": "385",
+      "name": "大夜摩天阎魔",
+      "template_count": 1,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": false,
+      "id": "386",
+      "name": "我妻善逸",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "387",
+      "name": "嘴平伊之助",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": true,
+      "id": "388",
+      "name": "心狩鬼女红叶",
+      "template_count": 1,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": false,
+      "id": "389",
+      "name": "须佐之男",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": true,
+      "id": "390",
+      "name": "神启荒",
+      "template_count": 1,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": false,
+      "id": "391",
+      "name": "寻香行",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "392",
+      "name": "季",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "393",
+      "name": "禅心云外镜",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "394",
+      "name": "月读",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": true,
+      "id": "395",
+      "name": "流光追月神",
+      "template_count": 1,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": false,
+      "id": "396",
+      "name": "修罗鬼童丸",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "397",
+      "name": "坂田银时",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "398",
+      "name": "天逆每",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": true,
+      "id": "399",
+      "name": "言灵",
+      "template_count": 1,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": false,
+      "id": "400",
+      "name": "盗墓小鬼",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "401",
+      "name": "寄生魂",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "403",
+      "name": "唐纸伞妖",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "404",
+      "name": "天邪鬼绿",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "405",
+      "name": "天邪鬼赤",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "406",
+      "name": "天邪鬼黄",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "407",
+      "name": "天邪鬼青",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "408",
+      "name": "帚神",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "409",
+      "name": "涂壁",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "410",
+      "name": "招福达摩",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "411",
+      "name": "御行达摩",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "412",
+      "name": "奉为达摩",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "413",
+      "name": "大吉达摩",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "414",
+      "name": "大天狗呱",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "415",
+      "name": "酒吞呱",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "416",
+      "name": "荒川呱",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "417",
+      "name": "阎魔呱",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "418",
+      "name": "两面佛呱",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "419",
+      "name": "小鹿男呱",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "420",
+      "name": "茨木呱",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "421",
+      "name": "青行灯呱",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "422",
+      "name": "妖刀姬呱",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "423",
+      "name": "一目连呱",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "424",
+      "name": "花鸟卷呱",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "425",
+      "name": "辉夜姬呱",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "426",
+      "name": "荒呱",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "427",
+      "name": "彼岸花呱",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "428",
+      "name": "雪童子呱",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "429",
+      "name": "玉藻前呱",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "430",
+      "name": "御馔津呱",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "433",
+      "name": "生剥鬼",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "500",
+      "name": "神乐&定春",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "550",
+      "name": "孔雀明王",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": true,
+      "id": "551",
+      "name": "寻森小鹿男",
+      "template_count": 1,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": false,
+      "id": "552",
+      "name": "慧明灯",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "553",
+      "name": "闻人翊悬",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": true,
+      "id": "554",
+      "name": "纺愿缘结神",
+      "template_count": 1,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": false,
+      "id": "555",
+      "name": "渺念萤草",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "556",
+      "name": "天照",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "557",
+      "name": "伊邪那美",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "558",
+      "name": "盗人神",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": true,
+      "id": "559",
+      "name": "本真三尾狐",
+      "template_count": 1,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": false,
+      "id": "561",
+      "name": "泷",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": true,
+      "id": "562",
+      "name": "鲸汐千姬",
+      "template_count": 2,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": false,
+      "id": "563",
+      "name": "初音未来",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "564",
+      "name": "镜音铃·连",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": true,
+      "id": "565",
+      "name": "福悦座敷童子",
+      "template_count": 2,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": true,
+      "id": "566",
+      "name": "晨晖惠比寿",
+      "template_count": 3,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": false,
+      "id": "567",
+      "name": "申屠子夜",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": true,
+      "id": "568",
+      "name": "龙吟铃鹿御前",
+      "template_count": 1,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": false,
+      "id": "569",
+      "name": "猫川",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "570",
+      "name": "祸津神",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "571",
+      "name": "湍津姬",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": true,
+      "id": "572",
+      "name": "遥念烟烟罗",
+      "template_count": 2,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": false,
+      "id": "573",
+      "name": "龙珏",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": true,
+      "id": "574",
+      "name": "心友犬神",
+      "template_count": 2,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": false,
+      "id": "575",
+      "name": "封阳君",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "576",
+      "name": "夏目&猫老师",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "577",
+      "name": "鬼金羊",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": true,
+      "id": "578",
+      "name": "神酿星熊童子",
+      "template_count": 2,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": true,
+      "id": "579",
+      "name": "瑶音紧那罗",
+      "template_count": 2,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": false,
+      "id": "580",
+      "name": "晴思日和坊",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "581",
+      "name": "歌留多",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "582",
+      "name": "巡音流歌",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "583",
+      "name": "卑弥呼",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": true,
+      "id": "584",
+      "name": "时曜泷夜叉姬",
+      "template_count": 2,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": false,
+      "id": "585",
+      "name": "荒骷髅",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": true,
+      "id": "586",
+      "name": "云间不见岳",
+      "template_count": 2,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": false,
+      "id": "587",
+      "name": "木之本樱",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": false,
+      "id": "588",
+      "name": "李小狼",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": true,
+      "id": "590",
+      "name": "妙主九命猫",
+      "template_count": 1,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": false,
+      "id": "591",
+      "name": "雪御前",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": true,
+      "id": "592",
+      "name": "平将门",
+      "template_count": 1,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": true,
+      "id": "593",
+      "name": "妖刀姬·绯夜猎刃",
+      "template_count": 3,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": true,
+      "id": "594",
+      "name": "梦引蝴蝶精",
+      "template_count": 2,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": true,
+      "id": "595",
+      "name": "梦山白藏主",
+      "template_count": 2,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": true,
+      "id": "596",
+      "name": "神无月",
+      "template_count": 4,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": false,
+      "id": "597",
+      "name": "葛叶",
+      "template_count": 0,
+      "views": []
+    },
+    {
+      "covered": true,
+      "id": "598",
+      "name": "灼华桃花妖",
+      "template_count": 2,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": true,
+      "id": "599",
+      "name": "蚀月吸血姬",
+      "template_count": 2,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": true,
+      "id": "600",
+      "name": "市加美",
+      "template_count": 1,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": true,
+      "id": "601",
+      "name": "思金神",
+      "template_count": 1,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": true,
+      "id": "602",
+      "name": "天火命铃彦姬",
+      "template_count": 3,
+      "views": [
+        "候选"
+      ]
+    },
+    {
+      "covered": true,
+      "id": "603",
+      "name": "毗沙门天",
+      "template_count": 1,
+      "views": [
+        "候选"
+      ]
+    }
+  ],
+  "missing_count": 227
+}

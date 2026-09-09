@@ -72,6 +72,7 @@ class ConfigModel:
     Password: Optional[str] = None
     CDN: Union[str, bool] = False
     Run: Optional[str] = None
+    ScriptStartIntervalSeconds: float = 60.0
 
 
 class DeployConfig(ConfigModel):
