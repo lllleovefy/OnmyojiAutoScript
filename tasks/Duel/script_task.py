@@ -2949,6 +2949,9 @@ class ScriptTask(DuelLivePublisherMixin, GameUi, GeneralBattle, SwitchSoul, Duel
             self.screenshot()
             if click_count >= 3:
                 break
+            if self.appear(self.I_WHITE_DOG):
+                self.click(random_click(ltrb=(True, False, False, False)), interval=1.5)
+                continue
             if self.appear_then_click(self.I_D_TEAM, interval=1):
                 continue
             if self.appear_then_click(self.I_UI_CONFIRM, interval=0.6):

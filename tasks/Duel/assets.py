@@ -93,7 +93,7 @@ class DuelAssets:
 	# ban选界面 
 	I_D_CHECK_BAN = RuleImage(roi_front=(611,36,56,62), roi_back=(590,14,100,100), threshold=0.8, method="Template matching", file="./tasks/Duel/duel/duel_d_check_ban.png")
 	# 斗技荣誉图标 
-	I_DUEL_HONOR = RuleImage(roi_front=(211,636,20,20), roi_back=(200,601,130,100), threshold=0.8, method="Template matching", file="./tasks/Duel/duel/duel_duel_honor.png")
+	I_DUEL_HONOR = RuleImage(roi_front=(211,636,20,20), roi_back=(180,601,217,98), threshold=0.8, method="Template matching", file="./tasks/Duel/duel/duel_duel_honor.png")
 	# Current Duel UI active confirm button
 	I_D_BP_CONFIRM_ACTIVE = RuleImage(roi_front=(1121,580,117,44), roi_back=(1118,577,123,50), threshold=0.9, method="Template matching", file="./tasks/Duel/duel/duel_d_bp_confirm_active.png")
 	# Current Duel UI locked confirm button
@@ -106,8 +106,11 @@ class DuelAssets:
 	I_D_BP_ONMYOJI_SELECT = RuleImage(roi_front=(205,566,40,58), roi_back=(196,552,62,86), threshold=0.85, method="Template matching", file="./tasks/Duel/duel/duel_d_bp_onmyoji_select.png")
 	# Final lineup reveal after Onmyoji selection
 	I_D_BP_READY = RuleImage(roi_front=(505,275,270,220), roi_back=(495,265,290,240), threshold=0.85, method="Template matching", file="./tasks/Duel/duel/duel_d_bp_ready.png")
+
 	# 胜利分享 
 	I_D_WIN_SHARE = RuleImage(roi_front=(1123,608,82,73), roi_back=(1123,608,82,73), threshold=0.8, method="Template matching", file="./tasks/Duel/duel/d_win_share.png")
+	# 小白弹窗 
+	I_WHITE_DOG = RuleImage(roi_front=(388,327,70,62), roi_back=(308,254,215,249), threshold=0.8, method="Template matching", file="./tasks/Duel/duel/duel_white_dog.png")
 
 
 	# Ocr Rule Assets
