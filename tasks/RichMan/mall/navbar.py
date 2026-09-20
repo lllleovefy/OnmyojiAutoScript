@@ -9,7 +9,7 @@ from module.atom.image import RuleImage
 from module.base.timer import Timer
 from module.logger import logger
 
-from tasks.GameUi.page import page_main, page_guild
+from tasks.GameUi.page import page_main, page_guild, page_mall
 from tasks.GameUi.game_ui import GameUi
 from tasks.Component.Buy.buy import Buy
 from tasks.RichMan.assets import RichManAssets
@@ -120,7 +120,11 @@ class MallNavbar(GameUi, RichManAssets):
         返回商城
         :return:
         """
-        self.ui_click(self.I_UI_BACK_YELLOW, self.I_CHECK_MALL)
+        while True:
+            self.screenshot()
+            if page_mall.recognizer.evaluate(self):
+                return
+            self.appear_then_click(self.I_UI_BACK_YELLOW, interval=1)
 
     def mall_resource(self, index: int) -> int:
         """
