@@ -107,6 +107,8 @@ class RestartAssets:
 	I_CANCEL_BATTLE = RuleImage(roi_front=(471,395,129,55), roi_back=(367,227,545,296), threshold=0.8, method="Template matching", file="./tasks/Restart/login/login_cancel_battle.png")
 	# 取消返回百鬼棋局，进入棋局结算流程
 	I_RETURN_CHESS_CANCEL = RuleImage(roi_front=(432,400,181,69), roi_back=(400,370,240,120), threshold=0.8, method="Template matching", file="./tasks/Restart/login/login_return_chess_cancel.png")
+	# 进入游戏按钮模板，原 OCR 未命中时兼容
+	I_LOGIN_ENTER_GAME_TEMPLATE = RuleImage(roi_front=(558,574,158,41), roi_back=(530,555,220,80), threshold=0.85, method="Template matching", file="./tasks/Restart/login/login_enter_game_template.png")
 
 
 	# Ocr Rule Assets

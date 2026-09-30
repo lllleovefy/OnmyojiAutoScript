@@ -169,5 +169,14 @@
     "method": "Template matching",
     "threshold": 0.8,
     "description": "取消返回百鬼棋局，进入棋局结算流程"
+  },
+  {
+    "itemName": "login_enter_game_template",
+    "imageName": "login_enter_game_template.png",
+    "roiFront": "558,574,158,41",
+    "roiBack": "530,555,220,80",
+    "method": "Template matching",
+    "threshold": 0.85,
+    "description": "进入游戏按钮模板，原 OCR 未命中时兼容"
   }
 ]
