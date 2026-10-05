@@ -1,0 +1,31 @@
+name: oas-ocr
+services:
+  ocr:
+    image: oas-ocr:local
+    build:
+      context: ../..
+      dockerfile: deploy/ocr/Dockerfile
+    container_name: oas-ocr
+    restart: unless-stopped
+    init: true
+    ports:
+      # This RPC endpoint accepts pickle payloads: trusted networks only.
+      - "${OCR_BIND_ADDRESS:-127.0.0.1}:22268:22268"
+    environment:
+      OCR_WORKERS: "${OCR_WORKERS:-4}"
+    cpus: 4.0
+    mem_limit: 3g
+    pids_limit: 256
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+      - /app/log:rw,noexec,nosuid,size=32m,uid=10001,gid=10001
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

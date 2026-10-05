@@ -1,0 +1,14 @@
+**
+!module/
+!module/exception.py
+!module/logger.py
+!module/ocr/
+!module/ocr/rpc.py
+!module/ocr/ppocr.py
+!deploy/
+!deploy/ocr/
+!deploy/ocr/Dockerfile
+!deploy/ocr/Dockerfile.dockerignore
+!deploy/ocr/requirements.txt
+!deploy/ocr/server.py
+!deploy/ocr/healthcheck.py

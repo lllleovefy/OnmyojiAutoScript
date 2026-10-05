@@ -1,0 +1,7 @@
+# OCR-only dependencies, matching the main project's versions.
+numpy==1.24.3
+opencv-python==4.7.0.72
+ppocr-onnx==0.0.3.9
+onnxruntime==1.16.3
+zerorpc==0.6.3
+rich==13.3.5

@@ -27,6 +27,7 @@ else:
 import threading
 
 from module.logger import logger
+from module.exception import ScriptError
 from module.image.rpc import ensure_image_server_ready, shutdown_image_server
 from module.server.setting import State
 from module.ocr.rpc import ensure_ocr_server_ready, shutdown_ocr_server
@@ -81,18 +82,46 @@ def fun(ev: threading.Event):
     logger.attr("Port", port)
     logger.attr("Reload", ev is not None)
 
-    ensure_image_server_ready()
-    ensure_ocr_server_ready()
-
+    stage = f"image service ({State.deploy_config.ImageClientAddress})"
     try:
+        logger.info("Startup stage: %s", stage)
+        ensure_image_server_ready()
+
+        stage = f"OCR service ({State.deploy_config.OcrClientAddress})"
+        logger.info("Startup stage: %s", stage)
+        try:
+            ensure_ocr_server_ready()
+        except ScriptError as exc:
+            if State.deploy_config.StartOcrServer:
+                raise
+            logger.warning(
+                "Remote OCR unavailable during startup; continuing backend startup. "
+                "Tasks will connect on demand: %s", exc,
+            )
+
+        stage = f"HTTP backend ({host}:{port})"
+        logger.info("Startup stage: %s", stage)
         uvicorn.run("module.server.app:fastapi_app",
                     host=host,
                     port=port,
                     factory=True,
                     log_config=None)
+    except SystemExit as exc:
+        # Uvicorn may report startup failures using a nonzero SystemExit.
+        if exc.code:
+            logger.exception("Backend exited during %s (exit_code=%s)", stage, exc.code)
+        raise
+    except Exception:
+        logger.exception("Backend failed during %s", stage)
+        raise
     finally:
-        shutdown_image_server()
-        shutdown_ocr_server()
+        # Only locally owned child processes are stopped by these functions.
+        # A cleanup failure must not hide the startup error or skip the other service.
+        for name, shutdown in (("image", shutdown_image_server), ("OCR", shutdown_ocr_server)):
+            try:
+                shutdown()
+            except Exception:
+                logger.exception("Failed to clean up %s service", name)
 
 
 if __name__ == "__main__":
