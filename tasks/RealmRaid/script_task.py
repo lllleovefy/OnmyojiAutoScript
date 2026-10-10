@@ -112,6 +112,7 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RealmRaidAssets):
                     if not self.fire(index):
                         # 没有成功进入战斗则重新检查票数和其他条件
                         continue
+                    returned_to_list = False
                     for _ in range(4):
                         last_battle = self.run_general_battle(
                             config=self.build_quick_exit_config(con.general_battle_config)
@@ -119,9 +120,13 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RealmRaidAssets):
                         if last_battle:
                             logger.info('Battle won during quick exit, stop retrying this target')
                             break
-                        self.fire_again()
+                        if not self.fire_again():
+                            returned_to_list = True
+                            break
                     else:
                         last_battle = self.run_general_battle(con.general_battle_config)
+                    if returned_to_list:
+                        continue
                     handled_first_target = True
             elif self.check_medal_is_frog(frog, medal, index):
                 # 如果挑战的这只是呱太的话，就要把锁定改为不锁定
@@ -459,19 +464,31 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RealmRaidAssets):
     def fire_again(self) -> bool:
         """
         失败界面再次挑战
-        :return: 是否再战成功
+        :return: True 表示进入再战，False 表示已返回突破列表
         """
-        self.wait_until_appear(self.I_FIRE_AGAIN)
         while True:
             self.screenshot()
+            if self.appear(self.I_RR_PERSON):
+                logger.info('Returned to realm raid list, reselect target')
+                return False
+            if self.appear(self.I_FIRE_AGAIN):
+                break
+        show_again_clicked = False
+        while True:
+            self.screenshot()
+            if self.appear(self.I_RR_PERSON):
+                logger.info('Returned to realm raid list, reselect target')
+                return False
+            # 先勾选今日不再提示，同一次再战只点击一次，避免重复切换。
+            if not show_again_clicked and self.appear_then_click(self.I_SHOW_AGAIN, interval=2):
+                show_again_clicked = True
+                continue
             # 先关闭未处理的退场确认框，避免与失败结算叠层时反复点击再战。
             if self.appear_then_click(self.I_EXIT_ENSURE, interval=0.8):
                 continue
             if self.appear(self.I_EXIT):
                 logger.info(f'Click fire again success')
                 return True
-            if self.appear_then_click(self.I_SHOW_AGAIN, interval=2):
-                continue
             if self.appear_then_click(self.I_FRESH_ENSURE, interval=2):
                 continue
             if self.appear_then_click(self.I_FIRE_AGAIN, interval=2):

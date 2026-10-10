@@ -191,8 +191,8 @@
   {
     "itemName": "show_again",
     "imageName": "res_show_again.png",
-    "roiFront": "539,344,32,36",
-    "roiBack": "397,218,485,275",
+    "roiFront": "537,342,38,38",
+    "roiBack": "522,327,68,68",
     "method": "Template matching",
     "threshold": 0.8,
     "description": "不再提示"

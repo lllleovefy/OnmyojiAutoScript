@@ -54,7 +54,7 @@ class RealmRaidAssets:
 	# 失败再次挑战 
 	I_FIRE_AGAIN = RuleImage(roi_front=(830,506,61,36), roi_back=(256,384,773,231), threshold=0.8, method="Template matching", file="./tasks/RealmRaid/res/res_fire_again.png")
 	# 不再提示 
-	I_SHOW_AGAIN = RuleImage(roi_front=(539,344,32,36), roi_back=(397,218,485,275), threshold=0.8, method="Template matching", file="./tasks/RealmRaid/res/res_show_again.png")
+	I_SHOW_AGAIN = RuleImage(roi_front=(537,342,38,38), roi_back=(522,327,68,68), threshold=0.8, method="Template matching", file="./tasks/RealmRaid/res/res_show_again.png")
 
 
 	# Image Rule Assets
