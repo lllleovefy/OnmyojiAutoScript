@@ -45,6 +45,7 @@ oas-backend.bat
 # ai
 AGENTS.md
 CLAUDE.md
+/DUEL_DEVELOPMENT_CONTEXT.md
 .codex/
 .claude/
 openspec/
