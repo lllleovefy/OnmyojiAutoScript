@@ -112,15 +112,16 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RealmRaidAssets):
                     if not self.fire(index):
                         # 没有成功进入战斗则重新检查票数和其他条件
                         continue
-                    self.run_general_battle(config=self.build_quick_exit_config(con.general_battle_config))
-                    self.fire_again()
-                    self.run_general_battle(config=self.build_quick_exit_config(con.general_battle_config))
-                    self.fire_again()
-                    self.run_general_battle(config=self.build_quick_exit_config(con.general_battle_config))
-                    self.fire_again()
-                    self.run_general_battle(config=self.build_quick_exit_config(con.general_battle_config))
-                    self.fire_again()
-                    last_battle = self.run_general_battle(con.general_battle_config)
+                    for _ in range(4):
+                        last_battle = self.run_general_battle(
+                            config=self.build_quick_exit_config(con.general_battle_config)
+                        )
+                        if last_battle:
+                            logger.info('Battle won during quick exit, stop retrying this target')
+                            break
+                        self.fire_again()
+                    else:
+                        last_battle = self.run_general_battle(con.general_battle_config)
                     handled_first_target = True
             elif self.check_medal_is_frog(frog, medal, index):
                 # 如果挑战的这只是呱太的话，就要把锁定改为不锁定
@@ -463,6 +464,9 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RealmRaidAssets):
         self.wait_until_appear(self.I_FIRE_AGAIN)
         while True:
             self.screenshot()
+            # 先关闭未处理的退场确认框，避免与失败结算叠层时反复点击再战。
+            if self.appear_then_click(self.I_EXIT_ENSURE, interval=0.8):
+                continue
             if self.appear(self.I_EXIT):
                 logger.info(f'Click fire again success')
                 return True
