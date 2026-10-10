@@ -241,7 +241,7 @@ class CostumeShikigamiAssets:
 	# description 
 	I_SOU_SWITCH_4_3 = RuleImage(roi_front=(978,603,31,19), roi_back=(962,592,53,34), threshold=0.8, method="Template matching", file="./tasks/Component/CostumeShikigami/sk3/sk3_sou_switch_4_3.png")
 	# description 
-	I_SOU_SWITCH_SURE_3 = RuleImage(roi_front=(668,401,180,61), roi_back=(668,401,180,61), threshold=0.8, method="Template matching", file="./tasks/Component/CostumeShikigami/sk3/sk3_sou_switch_sure_3.png")
+	I_SOU_SWITCH_SURE_3 = RuleImage(roi_front=(665,408,178,64), roi_back=(650,393,208,94), threshold=0.8, method="Template matching", file="./tasks/Component/CostumeShikigami/sk3/sk3_sou_switch_sure_3.png")
 	# 用于判断是否在式神录里面 
 	I_SOU_CHECK_IN_3 = RuleImage(roi_front=(268,74,50,49), roi_back=(268,74,50,49), threshold=0.8, method="Template matching", file="./tasks/Component/CostumeShikigami/sk3/sk3_sou_check_in_3.png")
 	# 检查是否为第一组 

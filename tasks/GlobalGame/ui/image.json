@@ -2,7 +2,7 @@
   {
     "itemName": "ui_confirm",
     "imageName": "ui_ui_confirm.png",
-    "roiFront": "667,398,179,66",
+    "roiFront": "665,408,178,64",
     "roiBack": "547,368,322,122",
     "method": "Template matching",
     "threshold": 0.8,
