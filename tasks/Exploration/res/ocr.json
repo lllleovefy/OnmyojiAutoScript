@@ -28,8 +28,8 @@
   },
   {
     "itemName": "realm_raid_number1",
-    "roiFront": "936,10,82,36",
-    "roiBack": "936,10,82,36",
+    "roiFront": "922,10,74,36",
+    "roiBack": "922,10,74,36",
     "mode": "DigitCounter",
     "method": "Default",
     "keyword": "",
