@@ -629,6 +629,8 @@ class Script:
             exit(1)
 
         if isinstance(e, RequestHumanTakeover):
+            if self.runtime.recover_offline_emulator():
+                return True
             logger.critical(e)
             self.exception_handler(e=e, command=command)
             logger.critical('Request human takeover')

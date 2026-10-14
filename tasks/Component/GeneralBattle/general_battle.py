@@ -849,6 +849,10 @@ class GeneralBattle(GeneralBuff, GeneralBattleAssets):
             self._battle_context = None
             self.device.screenshot_interval_set()
 
+    def _is_battle_exit_page(self) -> bool:
+        """判断是否已离开战斗，允许任务补充自己的返回页面。"""
+        return GameUi.get_current_page(self) in (page_battle_result, page_reward)
+
     def exit_battle(self, skip_first: bool = False) -> bool:
         """
         在战斗的时候强制退出战斗。
@@ -867,7 +871,7 @@ class GeneralBattle(GeneralBuff, GeneralBattleAssets):
             self.screenshot()
             if self.appear_then_click(self.I_EXIT_ENSURE, interval=0.8):
                 continue
-            if GameUi.get_current_page(self) in (page_battle_result, page_reward):
+            if self._is_battle_exit_page():
                 break
             if self.appear_then_click(self.I_EXIT, interval=6):
                 continue

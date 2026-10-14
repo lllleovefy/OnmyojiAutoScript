@@ -1,4 +1,5 @@
 import ctypes
+import json
 import os
 import re
 import subprocess
@@ -554,6 +555,22 @@ class PlatformWindows(PlatformBase, EmulatorManager):
         )
         self.execute(cmd, show_window=show_window)
 
+    def _mumu_instance_stopped(self, instance: EmulatorInstance, handler) -> bool:
+        """查询指定实例的实际状态；ADB 离线不能作为关闭完成的依据。"""
+        index = handler.get_instance_id(instance)
+        console = handler._resolve_console(instance)
+        if index is None or console is None:
+            raise EmulatorUnknown(f'Cannot query MuMu instance: {instance}')
+        result = subprocess.run(
+            [console, 'info', '-v', str(index)],
+            capture_output=True, encoding='utf-8', errors='replace',
+            timeout=5, check=True, startupinfo=self.build_startupinfo(show_window=False),
+        )
+        state = json.loads(result.stdout)
+        if state.get('error_code') != 0 or str(state.get('index')) != str(index):
+            raise EmulatorUnknown(f'Unexpected MuMu state for instance {index}')
+        return state.get('is_process_started') is False and state.get('is_android_started') is False
+
     def _emulator_stop(self, instance: EmulatorInstance):
         """
         Stop a emulator without error handling (delegates to Handler)
@@ -570,6 +587,23 @@ class PlatformWindows(PlatformBase, EmulatorManager):
         cmd = handler.build_stop_command(instance)
         if cmd is None:
             raise EmulatorUnknown(f'Handler returned no stop command for: {instance}')
+        if instance.type == 'MuMuPlayer12':
+            if self._mumu_instance_stopped(instance, handler):
+                logger.info(f'[emu-stop] already stopped: serial={instance.serial}')
+                return True
+            if self.execute(cmd, show_window=False).wait(timeout=30) != 0:
+                return False
+            logger.info(f'[emu-stop] wait for target shutdown: serial={instance.serial}')
+            timeout = Timer(30).start()
+            stopped_count = 0
+            while not timeout.reached():
+                stopped_count = stopped_count + 1 if self._mumu_instance_stopped(instance, handler) else 0
+                if stopped_count >= 2:
+                    logger.info(f'[emu-stop] target shutdown confirmed: serial={instance.serial}')
+                    return True
+                Timer(1).wait()
+            logger.error(f'[emu-stop] target shutdown timeout: serial={instance.serial}')
+            return False
         self.execute(cmd)
         return True
 

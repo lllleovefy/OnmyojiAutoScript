@@ -38,6 +38,12 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RealmRaidAssets):
     def _exit_matcher(self) -> ExitMatcher:
         return self.I_BACK_RED
 
+    def _is_battle_exit_page(self) -> bool:
+        if self.appear(self.I_RR_PERSON):
+            logger.info('Returned to realm raid list during battle exit')
+            return True
+        return super()._is_battle_exit_page()
+
     def run(self):
         con = self.config.realm_raid
         # 直接进入个人突破页面

@@ -2,10 +2,12 @@
 
 from datetime import datetime, timedelta
 from enum import Enum
+from time import monotonic
 from module.exception import RequestHumanTakeover, GameNotRunningError
 from typing import Any, Callable, Protocol
 
 from module.device.device import Device
+from module.device.env import IS_WINDOWS
 from module.device.platform2 import Platform
 from module.logger import logger
 
@@ -17,6 +19,7 @@ class ScriptRuntimeOwner(Protocol):
     config: Any
     device: Device
     _emulator_down: bool
+    is_first_task: bool
     last_task_runtime_outcome: dict[str, Any] | None
     __dict__: dict[str, Any]
 
@@ -53,6 +56,7 @@ class ScriptRuntimeController:
         self.script = script
         self.server_update_wait_until: datetime | None = None
         self.server_update_wait_log_until: datetime | None = None
+        self.offline_recovery_at: float | None = None
 
     @property
     def config(self):
@@ -206,6 +210,49 @@ class ScriptRuntimeController:
 
         _ = self.device
 
+    def recover_offline_emulator(self) -> bool:
+        """ADB 重试耗尽后，仅恢复明确离线的当前 MuMu 实例。"""
+        if not IS_WINDOWS or not self.config.script.error.handle_error:
+            return False
+        device = self.script.__dict__.get('device')
+        if device is None:
+            return False
+        if self.offline_recovery_at is not None and monotonic() - self.offline_recovery_at < 600:
+            logger.warning('Offline emulator recovery already attempted within 10 minutes')
+            return False
+
+        try:
+            serial = str(self.config.script.device.serial)
+            if device.serial != serial or device.list_adb_device_status().get(serial) != 'offline':
+                return False
+            with device.emulator_lifecycle_lock():
+                instance = device.refresh_target_instance(reason='offline recovery')
+                if instance is None or instance.type != 'MuMuPlayer12' or instance.serial != serial:
+                    return False
+                # 获取锁后再次确认，避免重启已经自行恢复的实例。
+                if device.list_adb_device_status().get(serial) != 'offline':
+                    return False
+                self.offline_recovery_at = monotonic()
+                logger.warning(f'Recover offline emulator: serial={serial}, name={instance.name}')
+                if not device._emulator_function_wrapper(device._emulator_stop, instance):
+                    logger.error('Offline emulator shutdown failed')
+                    return False
+
+            if not device.emulator_start():
+                logger.error('Offline emulator startup failed')
+                return False
+            # 重建截图与输入连接，不把重启前的任务状态带回游戏。
+            self.script.device = Device(self.config)
+            self.emulator_down = False
+            # 此次 Restart 用于故障恢复，不能被首次启动的跳过规则过滤。
+            self.script.is_first_task = False
+            self.config.task_call('Restart')
+            logger.info('Offline emulator recovered, reschedule through Restart')
+            return True
+        except Exception as e:
+            logger.warning(f'Offline emulator recovery failed: {e}')
+            return False
+
     def _run_restart_recovery(self, reason: str) -> ScriptRuntimeDecision:
         """
         通过 `Restart` 任务恢复游戏运行环境。
@@ -331,6 +378,9 @@ class ScriptRuntimeController:
         try:
             running = self.device.app_is_running()
         except RequestHumanTakeover as e:
+            # 明确离线时保留异常类型，交给统一入口恢复当前模拟器。
+            if self.device.list_adb_device_status().get(self.device.serial) == 'offline':
+                raise
             # adb 重试 3 次都连不上 → "无法确认游戏是否在前台"。
             # 翻译为 GameNotRunningError,沿调用栈上抛,
             # 由 Script._handle_task_exception 统一走 Restart 恢复分支。
